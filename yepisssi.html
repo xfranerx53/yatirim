@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Çoklu Portföy Engine (TL / USD)</title>
+    <!-- Chart.js Entegrasyonu -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js DataLabels Eklentisi (Dilim üstü yazılar için) -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --card-bg: #151922;
+            --card-border: #232936;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --input-bg: #1f293d;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 14px; font-size: 13px; }
+        
+        .header { text-align: center; margin-bottom: 12px; }
+        .header h1 { font-size: 18px; font-weight: 700; color: #fff; margin: 0; }
+
+        .sepet-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: none; }
+        .sepet-bar::-webkit-scrollbar { display: none; }
+        .sepet-tab { background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-muted); padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+        .sepet-tab.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+        .btn-add-sepet { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--accent-green); padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+
+        .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .card-title { font-size: 13px; font-weight: 600; color: var(--accent-blue); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+        label { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; margin-top: 8px; }
+        input[type="number"], input[type="date"], input[type="text"], select { width: 100%; padding: 8px 10px; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 6px; color: #fff; font-size: 13px; outline: none; }
+        
+        .row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+        .row-date { flex: 1.2; }
+        .row-amt { flex: 1.5; }
+        .btn-del { width: 34px; height: 34px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--accent-red); border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+
+        .btn-add-parca { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: var(--accent-blue); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .btn-add-satis { background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: var(--accent-orange); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .btn-sepet-del { background: transparent; border: none; color: var(--accent-red); font-size: 11px; cursor: pointer; padding: 0; text-decoration: underline; }
+
+        .summary-box { background: #1a2233; border: 1px solid #2b364e; border-radius: 8px; padding: 10px; margin-top: 8px; }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
+        .summary-item:last-child { margin-bottom: 0; }
+
+        .result-box { background: linear-gradient(135deg, #182232 0%, #111827 100%); border: 1px solid #2b384e; border-radius: 12px; padding: 14px; margin-top: 14px; }
+        .res-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; }
+        .res-value-main { font-size: 22px; font-weight: 800; color: var(--accent-green); margin-bottom: 8px; }
+        .res-value-sub { font-size: 18px; font-weight: 700; color: var(--accent-blue); margin-bottom: 8px; }
+
+        .status-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .badge-above { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .badge-below { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+
+        .perf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .perf-card { background: #111622; border: 1px solid #1f2738; padding: 10px; border-radius: 8px; }
+        .perf-val { font-size: 14px; font-weight: bold; color: #fff; margin-top: 2px; }
+        .perf-sub { font-size: 9px; color: var(--text-muted); }
+
+        .chart-container { position: relative; width: 100%; height: 260px; margin: 0 auto; }
+        .line-chart-container { position: relative; width: 100%; height: 200px; margin-top: 10px; }
+        .fifo-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
+        .fifo-table th, .fifo-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #232936; }
+        .fifo-table th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 9px; }
+        .fifo-progress { height: 6px; background: #1f293d; border-radius: 3px; overflow: hidden; margin-top: 3px; }
+        .fifo-progress-bar { height: 100%; background: var(--accent-orange); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📊 PORTFÖY & REALİZASYON ENGINE</h1>
+    </div>
+
+    <!-- 1. TOPLAM VARLIK DAĞILIMI (PASTA GRAFİK) -->
+    <div class="card" style="border-color: rgba(6, 182, 212, 0.3);">
+        <div class="card-title" style="color: var(--accent-cyan);">
+            <span>🍕 GENEL PORTFÖY DAĞILIMI</span>
+            <span id="toplamVarlikHeader" style="color:var(--accent-green); font-size:12px; font-weight:bold;">Toplam: 0 TL</span>
+        </div>
+        <!-- GENEL TOPLAM HEDEF / BAŞABAŞ ÖZETİ -->
+        <div id="genelPortfoyOzet" style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <div><span style="color:var(--text-muted);">Toplam Maliyet:</span> <strong id="genelToplamMaliyet" style="color:#fff;">0 TL</strong></div>
+            <div><span style="color:var(--text-muted);">Genel Başabaş:</span> <strong id="genelToplamBasabas" style="color:#10b981;">0 TL</strong></div>
+            <div><span style="color:var(--text-muted);">Genel Hedef:</span> <strong id="genelToplamHedef" style="color:#f59e0b;">0 TL</strong></div>
+        </div>
+        <div class="chart-container">
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+
+    <!-- SEPET BARI -->
+    <div class="sepet-bar" id="sepetBar"></div>
+
+    <!-- GÜNCEL PİYASA DEĞERİ KARTI -->
+    <div class="card" style="border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.05);">
+        <div class="card-title" style="color: var(--accent-purple);">
+            <span>📈 İÇERİDE KALAN GÜNCEL PİYASA DEĞERİ</span>
+        </div>
+        <div>
+            <label id="lblGuncelPiyasa">Kalan Portföyün Anlık Değeri</label>
+            <input type="number" id="guncelPiyasaDegeri" placeholder="Örn: 29449" step="any" oninput="otomatikHesapla()">
+        </div>
+    </div>
+
+    <!-- SEPET AYARLARI -->
+    <div class="card">
+        <div class="card-title">
+            <span>⚙️ SEPET AYARLARI</span>
+            <button class="btn-sepet-del" onclick="sepetiSil()">Bu Sepeti Sil</button>
+        </div>
+        
+        <div style="display:flex; gap:10px;">
+            <div style="flex:2;">
+                <label>Sepet Adı</label>
+                <input type="text" id="sepetAdi" value="" oninput="sepetAdiniGuncelle()">
+            </div>
+            <div style="flex:1;">
+                <label>Para Birimi</label>
+                <select id="sepetCurrency" onchange="paraBirimiGuncelle()">
+                    <option value="TL">TL (₺)</option>
+                    <option value="USD">USD ($)</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1;">
+                <label id="lblEnf">Enflasyon (%)</label>
+                <input type="number" id="yillikEnf" value="50.49" step="0.01" oninput="otomatikHesapla()">
+            </div>
+            <div style="flex:1;">
+                <label>Reel Kâr (%)</label>
+                <input type="number" id="hedefKar" value="15" step="1" oninput="otomatikHesapla()">
+            </div>
+            <div style="flex:1;" id="usdKurBox">
+                <label>USD / TL Kuru</label>
+                <input type="number" id="usdKur" value="34.00" step="0.1" oninput="otomatikHesapla()">
+            </div>
+        </div>
+    </div>
+
+    <!-- ALIM LİSTESİ -->
+    <div class="card">
+        <div class="card-title">
+            <span>1. ALIM HAREKETLERİ (GİRDİLER)</span>
+            <button class="btn-add-parca" onclick="parcaEkle('', '')">+ Alım Ekle</button>
+        </div>
+        <div id="parcalarListesi"></div>
+    </div>
+
+    <!-- SATIŞ LİSTESİ -->
+    <div class="card" style="border-color: rgba(245, 158, 11, 0.3);">
+        <div class="card-title" style="color: var(--accent-orange);">
+            <span>2. REALİZE SATIŞLAR (ÇIKTILAR)</span>
+            <button class="btn-add-satis" onclick="satisEkle('', '')">+ Satış Ekle</button>
+        </div>
+        <div id="satislarListesi"></div>
+    </div>
+
+    <!-- 2. FIFO İZLEME TABLOSU -->
+    <div class="card" style="border-color: rgba(245, 158, 11, 0.2);">
+        <div class="card-title" style="color: var(--accent-orange);">
+            <span>📋 ALIM BAZLI SATIŞ DETAYLANDIRMASI (FIFO)</span>
+        </div>
+        <div id="fifoContainer">
+            <table class="fifo-table">
+                <thead>
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Alım Tutarı</th>
+                        <th>Satılan Miktar</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody id="fifoBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- HESAPLAMA SONUÇLARI -->
+    <div class="result-box" id="output">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="res-title">Aktif Kalan Anapara</div>
+            <div id="statusBadge"></div>
+        </div>
+        <div class="res-value-sub" id="resKalanAnapara">0,00</div>
+
+        <div class="res-title">
+            <span id="lblResReel">Kalan Portföy Enflasyon Başabaş</span>
+            <span id="badgeEnfFark"></span>
+        </div>
+        <div class="res-value-sub" style="color:#a7f3d0;" id="resReel">0,00</div>
+        
+        <div class="res-title">
+            <span>Kalan Portföy Yeni Hedef Satış</span>
+            <span id="badgeHedefFark"></span>
+        </div>
+        <div class="res-value-main" id="resTarget">0,00</div>
+
+        <!-- PERFORMANS ANALİZ METRİKLERİ PANELSİ -->
+        <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #2b364e;">
+            <div class="res-title" style="color:var(--accent-cyan); font-weight:bold;">⚡ PERFORMANS ANALİZİ</div>
+            <div class="perf-grid">
+                <div class="perf-card">
+                    <div class="perf-sub">AĞIRLIKLI ORT. VADE</div>
+                    <div class="perf-val" id="perfOrtVade" style="color:var(--accent-purple);">0 Gün</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-sub">YILLIK İÇ VERİM (XIRR)</div>
+                    <div class="perf-val" id="perfXirr" style="color:var(--accent-green);">%0.0</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-sub">NET REEL GETİRİ</div>
+                    <div class="perf-val" id="perfNetReelGetiri">%0.0</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-sub">REEL GÜÇ DEĞİŞİMİ</div>
+                    <div class="perf-val" id="perfReelGuc">0,00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. TARİHSEL ZAMAN ÇİZELGESİ (ÇİZGİ GRAFİK) -->
+        <div style="margin-top:14px; padding-top:10px; border-top:1px dashed #2b364e;">
+            <div class="res-title" style="color:var(--accent-blue); font-weight:bold;">📉 TARİHSEL BAŞABAŞ VE HEDEF EĞRİSİ</div>
+            <div class="line-chart-container">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-item">
+                <span style="color:var(--text-muted);">Realize Edilen Satış:</span>
+                <span id="resTotalSatis" style="color: var(--accent-orange); font-weight:bold;">0,00</span>
+            </div>
+            <div class="summary-item">
+                <span style="color:var(--text-muted);">Satılan Kısmın Maliyeti:</span>
+                <span id="resSatilanMaliyet" style="color: #fff; font-weight:bold;">0,00</span>
+            </div>
+            <div class="summary-item">
+                <span style="color:var(--text-muted);">Realize Edilen Cebteki Kâr:</span>
+                <span id="resCebtekiKar" style="color: var(--accent-green); font-weight:bold;">0,00</span>
+            </div>
+            <div class="summary-item" id="tlKarsiligiRow" style="margin-top:6px; padding-top:4px; border-top:1px dashed #2b364e;">
+                <span style="color:var(--accent-blue);">Hedefin TL Karşılığı:</span>
+                <span id="resTargetTL" style="color: var(--accent-blue); font-weight:bold;">0,00 TL</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db;
+        let sepetler = [];
+        let aktifSepetId = null;
+        let pieChartInstance = null;
+        let lineChartInstance = null;
+
+        const request = indexedDB.open("MultiFonEngineDB_v11", 1);
+
+        request.onupgradeneeded = function(e) {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains("portfolios")) {
+                db.createObjectStore("portfolios", { keyPath: "id" });
+            }
+        };
+
+        request.onsuccess = function(e) {
+            db = e.target.result;
+            verileriYukle();
+        };
+
+        function verileriYukle() {
+            const tx = db.transaction("portfolios", "readonly");
+            const store = tx.objectStore("portfolios");
+            const getAll = store.getAll();
+
+            getAll.onsuccess = function() {
+                sepetler = getAll.result || [];
+                if (sepetler.length === 0) {
+                    sepetler = [
+                        { 
+                            id: 's1', 
+                            name: 'Midas / BIST', 
+                            currency: 'TL', 
+                            yillik: 50.49, 
+                            hedef: 15, 
+                            guncelDeger: '', 
+                            dates: ['2026-06-15', '2026-07-01'], 
+                            amts: [25000, 10000], 
+                            sDates: ['2026-08-19'], 
+                            sAmts: [9896] 
+                        },
+                        { 
+                            id: 's2', 
+                            name: 'YAY Fonu', 
+                            currency: 'TL', 
+                            yillik: 50.49, 
+                            hedef: 15, 
+                            guncelDeger: '', 
+                            dates: ['2026-06-17', '2026-07-16', '2026-07-30'], 
+                            amts: [32285, 27669, 13268], 
+                            sDates: [], 
+                            sAmts: [] 
+                        },
+                        { 
+                            id: 's3', 
+                            name: 'PAXG / Altın', 
+                            currency: 'USD', 
+                            yillik: 5, 
+                            hedef: 15, 
+                            guncelDeger: '', 
+                            dates: ['2026-01-01'], 
+                            amts: [7225], 
+                            sDates: [], 
+                            sAmts: [] 
+                        }
+                    ];
+                    sepetleriKaydet();
+                }
+                aktifSepetId = sepetler[0].id;
+                sepetBarCiz();
+                sepetYukle(aktifSepetId);
+            };
+        }
+
+        function sepetleriKaydet() {
+            if (!db) return;
+            const tx = db.transaction("portfolios", "readwrite");
+            const store = tx.objectStore("portfolios");
+            sepetler.forEach(s => store.put(s));
+        }
+
+        function sepetBarCiz() {
+            const bar = document.getElementById('sepetBar');
+            bar.innerHTML = '';
+
+            sepetler.forEach(s => {
+                const btn = document.createElement('button');
+                btn.className = `sepet-tab ${s.id === aktifSepetId ? 'active' : ''}`;
+                btn.innerText = (s.currency === 'USD' ? '💲 ' : '₺ ') + s.name;
+                btn.onclick = () => {
+                    aktifSepetId = s.id;
+                    sepetBarCiz();
+                    sepetYukle(aktifSepetId);
+                };
+                bar.appendChild(btn);
+            });
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'btn-add-sepet';
+            addBtn.innerText = '+ Yeni Sepet';
+            addBtn.onclick = yeniSepetEkle;
+            bar.appendChild(addBtn);
+        }
+
+        function yeniSepetEkle() {
+            const yeniId = 's_' + Date.now();
+            const yeniSepet = {
+                id: yeniId,
+                name: 'Yeni Sepet ' + (sepetler.length + 1),
+                currency: 'TL',
+                yillik: 50.49,
+                hedef: 15,
+                guncelDeger: '',
+                dates: [],
+                amts: [],
+                sDates: [],
+                sAmts: []
+            };
+            sepetler.push(yeniSepet);
+            aktifSepetId = yeniId;
+            sepetleriKaydet();
+            sepetBarCiz();
+            sepetYukle(yeniId);
+        }
+
+        function sepetiSil() {
+            if (sepetler.length <= 1) return alert("En az 1 sepet kalmalıdır!");
+            if (confirm("Bu sepeti silmek istediğine emin misin?")) {
+                const tx = db.transaction("portfolios", "readwrite");
+                tx.objectStore("portfolios").delete(aktifSepetId);
+
+                sepetler = sepetler.filter(s => s.id !== aktifSepetId);
+                aktifSepetId = sepetler[0].id;
+                sepetBarCiz();
+                sepetYukle(aktifSepetId);
+            }
+        }
+
+        function sepetYukle(id) {
+            const sepet = sepetler.find(s => s.id === id);
+            if (!sepet) return;
+
+            document.getElementById('sepetAdi').value = sepet.name;
+            document.getElementById('sepetCurrency').value = sepet.currency || 'TL';
+            document.getElementById('yillikEnf').value = sepet.yillik;
+            document.getElementById('hedefKar').value = sepet.hedef;
+            document.getElementById('guncelPiyasaDegeri').value = sepet.guncelDeger || '';
+
+            document.getElementById('parcalarListesi').innerHTML = '';
+            document.getElementById('satislarListesi').innerHTML = '';
+
+            if (sepet.dates) {
+                for (let i = 0; i < sepet.dates.length; i++) {
+                    parcaEkleHTML('parcalarListesi', sepet.dates[i], sepet.amts[i], 'p');
+                }
+            }
+            if (sepet.sDates) {
+                for (let i = 0; i < sepet.sDates.length; i++) {
+                    parcaEkleHTML('satislarListesi', sepet.sDates[i], sepet.sAmts[i], 's');
+                }
+            }
+            paraBirimiAyarla();
+            otomatikHesapla();
+        }
+
+        function parcaEkleHTML(containerId, tarih, tutar, type) {
+            const list = document.getElementById(containerId);
+            const row = document.createElement('div');
+            row.className = 'row';
+            
+            row.innerHTML = `
+                <div class="row-date"><input type="date" class="${type}-date" value="${tarih}" onchange="otomatikHesapla()"></div>
+                <div class="row-amt"><input type="number" class="${type}-amt" placeholder="Tutar" value="${tutar}" oninput="otomatikHesapla()"></div>
+                <button class="btn-del" onclick="this.parentElement.remove(); otomatikHesapla();">✕</button>
+            `;
+            list.appendChild(row);
+        }
+
+        function parcaEkle(tarih = '', tutar = '') {
+            parcaEkleHTML('parcalarListesi', tarih, tutar, 'p');
+            otomatikHesapla();
+        }
+
+        function satisEkle(tarih = '', tutar = '') {
+            parcaEkleHTML('satislarListesi', tarih, tutar, 's');
+            otomatikHesapla();
+        }
+
+        function sepetAdiniGuncelle() {
+            const sepet = sepetler.find(s => s.id === aktifSepetId);
+            if (sepet) {
+                sepet.name = document.getElementById('sepetAdi').value;
+                sepetBarCiz();
+                sepetleriKaydet();
+            }
+        }
+
+        function paraBirimiGuncelle() {
+            const sepet = sepetler.find(s => s.id === aktifSepetId);
+            if (sepet) {
+                sepet.currency = document.getElementById('sepetCurrency').value;
+                if (sepet.currency === 'USD' && sepet.yillik == 50.49) {
+                    sepet.yillik = 5;
+                    document.getElementById('yillikEnf').value = 5;
+                } else if (sepet.currency === 'TL' && sepet.yillik == 5) {
+                    sepet.yillik = 50.49;
+                    document.getElementById('yillikEnf').value = 50.49;
+                }
+                sepetBarCiz();
+                paraBirimiAyarla();
+                otomatikHesapla();
+            }
+        }
+
+        function paraBirimiAyarla() {
+            const curr = document.getElementById('sepetCurrency').value;
+            document.getElementById('lblEnf').innerText = curr === 'USD' ? 'ABD Enflasyon (%)' : 'TR Enflasyon (%)';
+            document.getElementById('lblGuncelPiyasa').innerText = curr === 'USD' ? 'Kalan Portföyün Anlık Değeri ($)' : 'Kalan Portföyün Anlık Değeri (₺)';
+            document.getElementById('tlKarsiligiRow').style.display = curr === 'USD' ? 'flex' : 'none';
+        }
+
+        function calculateXIRR(cashflows) {
+            if (cashflows.length < 2) return 0;
+            let rate = 0.1;
+            const maxIter = 100;
+            const precision = 1e-6;
+
+            for (let i = 0; i < maxIter; i++) {
+                let fValue = 0;
+                let fDerivative = 0;
+
+                for (let j = 0; j < cashflows.length; j++) {
+                    const days = (cashflows[j].date - cashflows[0].date) / (1000 * 60 * 60 * 24);
+                    const years = days / 365.0;
+                    fValue += cashflows[j].amount / Math.pow(1 + rate, years);
+                    fDerivative -= (years * cashflows[j].amount) / Math.pow(1 + rate, years + 1);
+                }
+
+                const newRate = rate - fValue / fDerivative;
+                if (Math.abs(newRate - rate) < precision) return newRate * 100;
+                rate = newRate;
+            }
+            return rate * 100;
+        }
+
+        function otomatikHesapla() {
+            const sepet = sepetler.find(s => s.id === aktifSepetId);
+            if (!sepet) return;
+
+            const curr = document.getElementById('sepetCurrency').value;
+            const symbol = curr === 'USD' ? ' $' : ' TL';
+            const usdKur = parseFloat(document.getElementById('usdKur').value) || 34;
+            const guncelPiyasaDegeri = parseFloat(document.getElementById('guncelPiyasaDegeri').value) || 0;
+
+            const yillik = (parseFloat(document.getElementById('yillikEnf').value) || 0) / 100;
+            const karMarji = (parseFloat(document.getElementById('hedefKar').value) || 0) / 100;
+            const gunlukEnf = Math.pow(1 + yillik, 1 / 365) - 1;
+            const bugun = new Date();
+
+            const pDates = document.querySelectorAll('.p-date');
+            const pAmts = document.querySelectorAll('.p-amt');
+            let alimlar = [];
+            let xirrFlows = [];
+            const saveDates = [], saveAmts = [];
+
+            for (let i = 0; i < pDates.length; i++) {
+                const d = pDates[i].value;
+                const a = parseFloat(pAmts[i].value) || 0;
+                saveDates.push(d); saveAmts.push(pAmts[i].value);
+                if (a > 0 && d) {
+                    const alimDate = new Date(d);
+                    alimlar.push({ id: i, date: alimDate, dateStr: d, origAmt: a, kalanAmt: a });
+                    xirrFlows.push({ date: alimDate, amount: -a });
+                }
+            }
+
+            const sDates = document.querySelectorAll('.s-date');
+            const sAmts = document.querySelectorAll('.s-amt');
+            let toplamSatisTutari = 0;
+            const saveSDates = [], saveSAmts = [];
+
+            for (let i = 0; i < sDates.length; i++) {
+                const d = sDates[i].value;
+                const a = parseFloat(sAmts[i].value) || 0;
+                saveSDates.push(d); saveSAmts.push(sAmts[i].value);
+                if (a > 0 && d) {
+                    toplamSatisTutari += a;
+                    xirrFlows.push({ date: new Date(d), amount: a });
+                }
+            }
+
+            if (guncelPiyasaDegeri > 0) {
+                xirrFlows.push({ date: bugun, amount: guncelPiyasaDegeri });
+            }
+
+            let düsenSatis = toplamSatisTutari;
+            let satilanKisminMaliyeti = 0;
+
+            for (let alim of alimlar) {
+                if (düsenSatis <= 0) break;
+                if (alim.kalanAmt <= düsenSatis) {
+                    düsenSatis -= alim.kalanAmt;
+                    satilanKisminMaliyeti += alim.kalanAmt;
+                    alim.kalanAmt = 0;
+                } else {
+                    alim.kalanAmt -= düsenSatis;
+                    satilanKisminMaliyeti += düsenSatis;
+                    düsenSatis = 0;
+                }
+            }
+
+            const fifoBody = document.getElementById('fifoBody');
+            fifoBody.innerHTML = '';
+            alimlar.forEach(a => {
+                const satilanTutar = a.origAmt - a.kalanAmt;
+                const yuzde = ((satilanTutar / a.origAmt) * 100).toFixed(1);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${a.dateStr}</td>
+                    <td>${a.origAmt.toLocaleString('tr-TR')} ${symbol}</td>
+                    <td style="color:var(--accent-orange);">${satilanTutar.toLocaleString('tr-TR')} ${symbol} (%${yuzde})</td>
+                    <td>
+                        <div style="font-size:9px; color:var(--text-muted);">${a.kalanAmt > 0 ? 'Aktif' : 'Tamamen Satıldı'}</div>
+                        <div class="fifo-progress"><div class="fifo-progress-bar" style="width:${yuzde}%;"></div></div>
+                    </td>
+                `;
+                fifoBody.appendChild(tr);
+            });
+
+            let kalanAnapara = 0;
+            let kalanReelDeger = 0;
+            let agirlikliGunToplam = 0;
+
+            for (let alim of alimlar) {
+                if (alim.kalanAmt > 0) {
+                    const diffTime = bugun - alim.date;
+                    const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+                    kalanAnapara += alim.kalanAmt;
+                    kalanReelDeger += alim.kalanAmt * Math.pow(1 + gunlukEnf, diffDays);
+                    agirlikliGunToplam += alim.kalanAmt * diffDays;
+                }
+            }
+
+            const agirlikliOrtVade = kalanAnapara > 0 ? Math.round(agirlikliGunToplam / kalanAnapara) : 0;
+
+            sepet.currency = curr;
+            sepet.yillik = document.getElementById('yillikEnf').value;
+            sepet.hedef = document.getElementById('hedefKar').value;
+            sepet.guncelDeger = document.getElementById('guncelPiyasaDegeri').value;
+            sepet.dates = saveDates; sepet.amts = saveAmts;
+            sepet.sDates = saveSDates; sepet.sAmts = saveSAmts;
+            sepetleriKaydet();
+
+            const cebtekiKar = toplamSatisTutari - satilanKisminMaliyeti;
+            const hedefSatis = kalanReelDeger * (1 + karMarji);
+
+            document.getElementById('resKalanAnapara').innerText = kalanAnapara.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
+            document.getElementById('resReel').innerText = kalanReelDeger.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
+            document.getElementById('resTarget').innerText = hedefSatis.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
+
+            const badgeEnfFark = document.getElementById('badgeEnfFark');
+            const badgeHedefFark = document.getElementById('badgeHedefFark');
+
+            if (guncelPiyasaDegeri > 0) {
+                if (kalanReelDeger > 0) {
+                    const enfFarkYuzde = ((guncelPiyasaDegeri - kalanReelDeger) / kalanReelDeger) * 100;
+                    if (enfFarkYuzde >= 0) {
+                        badgeEnfFark.innerHTML = `<span class="status-badge badge-above">+%${enfFarkYuzde.toFixed(1)} Üstünde</span>`;
+                    } else {
+                        badgeEnfFark.innerHTML = `<span class="status-badge badge-below">%${enfFarkYuzde.toFixed(1)} Altında</span>`;
+                    }
+                } else {
+                    badgeEnfFark.innerHTML = '';
+                }
+
+                if (hedefSatis > 0) {
+                    const hedefFarkYuzde = ((guncelPiyasaDegeri - hedefSatis) / hedefSatis) * 100;
+                    if (hedefFarkYuzde >= 0) {
+                        badgeHedefFark.innerHTML = `<span class="status-badge badge-above">Hedef Aşıldı (+%${hedefFarkYuzde.toFixed(1)})</span>`;
+                    } else {
+                        badgeHedefFark.innerHTML = `<span class="status-badge badge-below">Hedefe %${Math.abs(hedefFarkYuzde).toFixed(1)} Kaldı</span>`;
+                    }
+                } else {
+                    badgeHedefFark.innerHTML = '';
+                }
+            } else {
+                badgeEnfFark.innerHTML = '';
+                badgeHedefFark.innerHTML = '';
+            }
+
+            document.getElementById('resTotalSatis').innerText = toplamSatisTutari.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
+            document.getElementById('resSatilanMaliyet').innerText = satilanKisminMaliyeti.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
+            document.getElementById('resCebtekiKar').innerText = cebtekiKar.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
+
+            document.getElementById('perfOrtVade').innerText = `${agirlikliOrtVade} Gün (${(agirlikliOrtVade / 30).toFixed(1)} Ay)`;
+
+            xirrFlows.sort((a, b) => a.date - b.date);
+            const xirrVal = calculateXIRR(xirrFlows);
+            const xirrElem = document.getElementById('perfXirr');
+            xirrElem.innerText = `%${xirrVal.toFixed(1)}`;
+            xirrElem.style.color = xirrVal >= (yillik * 100) ? 'var(--accent-green)' : 'var(--accent-red)';
+
+            if (guncelPiyasaDegeri > 0 && kalanReelDeger > 0) {
+                const netReelGetiri = ((guncelPiyasaDegeri - kalanReelDeger) / kalanReelDeger) * 100;
+                const reelGucFark = guncelPiyasaDegeri - kalanReelDeger;
+
+                const getiriElem = document.getElementById('perfNetReelGetiri');
+                getiriElem.innerText = `%${netReelGetiri.toFixed(1)}`;
+                getiriElem.style.color = netReelGetiri >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+                const gucElem = document.getElementById('perfReelGuc');
+                gucElem.innerText = (reelGucFark >= 0 ? '+' : '') + reelGucFark.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
+                gucElem.style.color = reelGucFark >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+            } else {
+                document.getElementById('perfNetReelGetiri').innerText = '%0.0';
+                document.getElementById('perfReelGuc').innerText = '0,00';
+            }
+
+            const badge = document.getElementById('statusBadge');
+            if (guncelPiyasaDegeri > 0 && hedefSatis > 0) {
+                const fark = ((guncelPiyasaDegeri - hedefSatis) / hedefSatis) * 100;
+                if (guncelPiyasaDegeri >= hedefSatis) {
+                    badge.innerHTML = `<span class="status-badge badge-above">HEDEFE ULAŞILDI (+%${fark.toFixed(1)})</span>`;
+                } else {
+                    badge.innerHTML = `<span class="status-badge badge-below">HEDEFİN ALTINDA (%${fark.toFixed(1)})</span>`;
+                }
+            } else {
+                badge.innerHTML = '';
+            }
+
+            if (curr === 'USD') {
+                const targetTL = hedefSatis * usdKur;
+                document.getElementById('resTargetTL').innerText = targetTL.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + " TL";
+            }
+
+            cizPastaGrafik(usdKur);
+            cizCizgiGrafik(alimlar, gunlukEnf, karMarji);
+        }
+
+        function cizPastaGrafik(usdKur) {
+            const labels = [];
+            const data = [];
+            let toplamTL = 0;
+            let toplamMaliyetTL = 0;
+            let genelToplamBasabasTL = 0;
+            let genelToplamHedefTL = 0;
+            const bugun = new Date();
+
+            sepetler.forEach(s => {
+                let deger = parseFloat(s.guncelDeger) || 0;
+                const tlValue = s.currency === 'USD' ? deger * usdKur : deger;
+                toplamTL += tlValue;
+
+                let sYillik = (parseFloat(s.yillik) || 0) / 100;
+                let sHedefMarji = (parseFloat(s.hedef) || 0) / 100;
+                let sGunlukEnf = Math.pow(1 + sYillik, 1 / 365) - 1;
+
+                // FIFO Mantığı ile bu sepetin kalan anapara, başabaş ve hedefini hesapla
+                let sAlimlar = [];
+                if (s.dates && s.amts) {
+                    for (let i = 0; i < s.dates.length; i++) {
+                        let amt = parseFloat(s.amts[i]) || 0;
+                        let d = s.dates[i];
+                        if (amt > 0 && d) {
+                            sAlimlar.push({ date: new Date(d), origAmt: amt, kalanAmt: amt });
+                            toplamMaliyetTL += (s.currency === 'USD' ? amt * usdKur : amt);
+                        }
+                    }
+                }
+
+                let sSatisToplam = 0;
+                if (s.sAmts) {
+                    for (let i = 0; i < s.sAmts.length; i++) {
+                        sSatisToplam += (parseFloat(s.sAmts[i]) || 0);
+                    }
+                }
+
+                let dusenSatis = sSatisToplam;
+                for (let alim of sAlimlar) {
+                    if (dusenSatis <= 0) break;
+                    if (alim.kalanAmt <= dusenSatis) {
+                        dusenSatis -= alim.kalanAmt;
+                        alim.kalanAmt = 0;
+                    } else {
+                        alim.kalanAmt -= dusenSatis;
+                        dusenSatis = 0;
+                    }
+                }
+
+                let sKalanReel = 0;
+                for (let alim of sAlimlar) {
+                    if (alim.kalanAmt > 0) {
+                        let diffDays = Math.max(0, Math.floor((bugun - alim.date) / (1000 * 60 * 60 * 24)));
+                        let reelDeger = alim.kalanAmt * Math.pow(1 + sGunlukEnf, diffDays);
+                        sKalanReel += (s.currency === 'USD' ? reelDeger * usdKur : reelDeger);
+                    }
+                }
+
+                genelToplamBasabasTL += sKalanReel;
+                genelToplamHedefTL += sKalanReel * (1 + sHedefMarji);
+            });
+
+            sepetler.forEach(s => {
+                let deger = parseFloat(s.guncelDeger) || 0;
+                const tlValue = s.currency === 'USD' ? deger * usdKur : deger;
+                labels.push(s.name);
+                data.push(tlValue);
+            });
+
+            document.getElementById('toplamVarlikHeader').innerText = `Toplam: ${toplamTL.toLocaleString('tr-TR', {maximumFractionDigits: 0})} TL`;
+            
+            // Genel Toplam Özet Alanını Güncelle
+            document.getElementById('genelToplamMaliyet').innerText = toplamMaliyetTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
+            document.getElementById('genelToplamBasabas').innerText = genelToplamBasabasTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
+            document.getElementById('genelToplamHedef').innerText = genelToplamHedefTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
+
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            if (pieChartInstance) pieChartInstance.destroy();
+
+            const renkPaleti = [
+                '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', 
+                '#ec4899', '#84cc16', '#f97316', '#6366f1', '#14b8a6'
+            ];
+
+            pieChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: renkPaleti,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } },
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 9 },
+                            formatter: (value, ctx) => {
+                                let sum = 0;
+                                let dataArr = ctx.chart.data.datasets[0].data;
+                                dataArr.map(data => { sum += data; });
+                                if (sum === 0) return '';
+                                let percentage = (value * 100 / sum).toFixed(1) + "%";
+                                let valStr = value.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
+                                return [ctx.chart.data.labels[ctx.dataIndex], valStr, '(' + percentage + ')'];
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+        }
+
+        function cizCizgiGrafik(alimlar, gunlukEnf, karMarji) {
+            if (alimlar.length === 0) return;
+
+            const datesSorted = [...alimlar].sort((a, b) => a.date - b.date);
+            const startDate = datesSorted[0].date;
+            const endDate = new Date();
+            const labels = [];
+            const dataAnapara = [];
+            const dataEnflasyon = [];
+            const dataHedef = [];
+
+            const stepDays = Math.max(1, Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24 * 6)));
+
+            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + stepDays)) {
+                labels.push(d.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' }));
+
+                let aPara = 0;
+                let enfPara = 0;
+
+                alimlar.forEach(a => {
+                    if (a.date <= d) {
+                        aPara += a.origAmt;
+                        const diffDays = Math.floor((d - a.date) / (1000 * 60 * 60 * 24));
+                        enfPara += a.origAmt * Math.pow(1 + gunlukEnf, diffDays);
+                    }
+                });
+
+                dataAnapara.push(aPara);
+                dataEnflasyon.push(enfPara);
+                dataHedef.push(enfPara * (1 + karMarji));
+            }
+
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            if (lineChartInstance) lineChartInstance.destroy();
+
+            lineChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Anapara', data: dataAnapara, borderColor: '#3b82f6', borderWidth: 2, pointRadius: 2, fill: false },
+                        { label: 'Başabaş (Enf)', data: dataEnflasyon, borderColor: '#10b981', borderWidth: 2, pointRadius: 2, fill: false },
+                        { label: 'Hedef Satış', data: dataHedef, borderColor: '#f59e0b', borderWidth: 2, pointRadius: 2, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: '#9ca3af', font: { size: 9 } } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2738' } },
+                        y: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2738' } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
