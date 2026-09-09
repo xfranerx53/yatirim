@@ -518,7 +518,10 @@
 
             const yillik = (parseFloat(document.getElementById('yillikEnf').value) || 0) / 100;
             const karMarji = (parseFloat(document.getElementById('hedefKar').value) || 0) / 100;
+            
+            // DÜZELTME: Enflasyon ve Reel Kâr oranlarının her ikisi de günlük pro-rata bazda hesaplanıyor
             const gunlukEnf = Math.pow(1 + yillik, 1 / 365) - 1;
+            const gunlukKar = Math.pow(1 + karMarji, 1 / 365) - 1;
             const bugun = new Date();
 
             const pDates = document.querySelectorAll('.p-date');
@@ -593,6 +596,7 @@
 
             let kalanAnapara = 0;
             let kalanReelDeger = 0;
+            let kalanHedefDeger = 0;
             let agirlikliGunToplam = 0;
 
             for (let alim of alimlar) {
@@ -600,7 +604,14 @@
                     const diffTime = bugun - alim.date;
                     const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
                     kalanAnapara += alim.kalanAmt;
-                    kalanReelDeger += alim.kalanAmt * Math.pow(1 + gunlukEnf, diffDays);
+                    
+                    const enfBicimi = Math.pow(1 + gunlukEnf, diffDays);
+                    const karBicimi = Math.pow(1 + gunlukKar, diffDays);
+                    
+                    kalanReelDeger += alim.kalanAmt * enfBicimi;
+                    // DÜZELTME: Hedef satış değeri artık enflasyon * günlük pro-rata reel kâr büyümesiyle hesaplanıyor
+                    kalanHedefDeger += alim.kalanAmt * enfBicimi * karBicimi;
+                    
                     agirlikliGunToplam += alim.kalanAmt * diffDays;
                 }
             }
@@ -616,7 +627,7 @@
             sepetleriKaydet();
 
             const cebtekiKar = toplamSatisTutari - satilanKisminMaliyeti;
-            const hedefSatis = kalanReelDeger * (1 + karMarji);
+            const hedefSatis = kalanHedefDeger;
 
             document.getElementById('resKalanAnapara').innerText = kalanAnapara.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
             document.getElementById('resReel').innerText = kalanReelDeger.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
@@ -698,7 +709,7 @@
             }
 
             cizPastaGrafik(usdKur);
-            cizCizgiGrafik(alimlar, gunlukEnf, karMarji);
+            cizCizgiGrafik(alimlar, gunlukEnf, gunlukKar);
         }
 
         function cizPastaGrafik(usdKur) {
@@ -718,8 +729,8 @@
                 let sYillik = (parseFloat(s.yillik) || 0) / 100;
                 let sHedefMarji = (parseFloat(s.hedef) || 0) / 100;
                 let sGunlukEnf = Math.pow(1 + sYillik, 1 / 365) - 1;
+                let sGunlukKar = Math.pow(1 + sHedefMarji, 1 / 365) - 1;
 
-                // FIFO Mantığı ile bu sepetin kalan anapara, başabaş ve hedefini hesapla
                 let sAlimlar = [];
                 if (s.dates && s.amts) {
                     for (let i = 0; i < s.dates.length; i++) {
@@ -752,16 +763,23 @@
                 }
 
                 let sKalanReel = 0;
+                let sKalanHedef = 0;
                 for (let alim of sAlimlar) {
                     if (alim.kalanAmt > 0) {
                         let diffDays = Math.max(0, Math.floor((bugun - alim.date) / (1000 * 60 * 60 * 24)));
-                        let reelDeger = alim.kalanAmt * Math.pow(1 + sGunlukEnf, diffDays);
+                        let enfBicimi = Math.pow(1 + sGunlukEnf, diffDays);
+                        let karBicimi = Math.pow(1 + sGunlukKar, diffDays);
+                        
+                        let reelDeger = alim.kalanAmt * enfBicimi;
+                        let hedefDeger = alim.kalanAmt * enfBicimi * karBicimi;
+                        
                         sKalanReel += (s.currency === 'USD' ? reelDeger * usdKur : reelDeger);
+                        sKalanHedef += (s.currency === 'USD' ? hedefDeger * usdKur : hedefDeger);
                     }
                 }
 
                 genelToplamBasabasTL += sKalanReel;
-                genelToplamHedefTL += sKalanReel * (1 + sHedefMarji);
+                genelToplamHedefTL += sKalanHedef;
             });
 
             sepetler.forEach(s => {
@@ -773,7 +791,6 @@
 
             document.getElementById('toplamVarlikHeader').innerText = `Toplam: ${toplamTL.toLocaleString('tr-TR', {maximumFractionDigits: 0})} TL`;
             
-            // Genel Toplam Özet Alanını Güncelle
             document.getElementById('genelToplamMaliyet').innerText = toplamMaliyetTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
             document.getElementById('genelToplamBasabas').innerText = genelToplamBasabasTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
             document.getElementById('genelToplamHedef').innerText = genelToplamHedefTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
@@ -820,7 +837,7 @@
             });
         }
 
-        function cizCizgiGrafik(alimlar, gunlukEnf, karMarji) {
+        function cizCizgiGrafik(alimlar, gunlukEnf, gunlukKar) {
             if (alimlar.length === 0) return;
 
             const datesSorted = [...alimlar].sort((a, b) => a.date - b.date);
@@ -838,18 +855,23 @@
 
                 let aPara = 0;
                 let enfPara = 0;
+                let hedefPara = 0;
 
                 alimlar.forEach(a => {
                     if (a.date <= d) {
                         aPara += a.origAmt;
                         const diffDays = Math.floor((d - a.date) / (1000 * 60 * 60 * 24));
-                        enfPara += a.origAmt * Math.pow(1 + gunlukEnf, diffDays);
+                        const enfB = Math.pow(1 + gunlukEnf, diffDays);
+                        const karB = Math.pow(1 + gunlukKar, diffDays);
+                        
+                        enfPara += a.origAmt * enfB;
+                        hedefPara += a.origAmt * enfB * karB;
                     }
                 });
 
                 dataAnapara.push(aPara);
                 dataEnflasyon.push(enfPara);
-                dataHedef.push(enfPara * (1 + karMarji));
+                dataHedef.push(hedefPara);
             }
 
             const ctx = document.getElementById('lineChart').getContext('2d');
@@ -881,3 +903,4 @@
     </script>
 </body>
 </html>
+
