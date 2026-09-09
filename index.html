@@ -8,6 +8,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Chart.js DataLabels Eklentisi (Dilim üstü yazılar için) -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- Firebase SDK (Compat Sürümleri) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
     <style>
         :root {
             --bg-color: #0b0e14;
@@ -262,85 +265,81 @@
     </div>
 
     <script>
-        let db;
+        // Firebase Yapılandırması
+        const firebaseConfig = {
+            databaseURL: "https://yatirim-a5ba0-default-rtdb.firebaseio.com"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         let sepetler = [];
         let aktifSepetId = null;
         let pieChartInstance = null;
         let lineChartInstance = null;
+        let isSaving = false;
 
-        const request = indexedDB.open("MultiFonEngineDB_v11", 1);
-
-        request.onupgradeneeded = function(e) {
-            db = e.target.result;
-            if (!db.objectStoreNames.contains("portfolios")) {
-                db.createObjectStore("portfolios", { keyPath: "id" });
+        // Firebase'den Verileri Dinle (Realtime Sync)
+        database.ref('portfolios').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                sepetler = data;
+            } else {
+                // İlk kurulum varsayılan sepetler
+                sepetler = [
+                    { 
+                        id: 's1', 
+                        name: 'Midas / BIST', 
+                        currency: 'TL', 
+                        yillik: 50.49, 
+                        hedef: 15, 
+                        guncelDeger: '', 
+                        dates: ['2026-06-15', '2026-07-01'], 
+                        amts: [25000, 10000], 
+                        sDates: ['2026-08-19'], 
+                        sAmts: [9896] 
+                    },
+                    { 
+                        id: 's2', 
+                        name: 'YAY Fonu', 
+                        currency: 'TL', 
+                        yillik: 50.49, 
+                        hedef: 15, 
+                        guncelDeger: '', 
+                        dates: ['2026-06-17', '2026-07-16', '2026-07-30'], 
+                        amts: [32285, 27669, 13268], 
+                        sDates: [], 
+                        sAmts: [] 
+                    },
+                    { 
+                        id: 's3', 
+                        name: 'PAXG / Altın', 
+                        currency: 'USD', 
+                        yillik: 5, 
+                        hedef: 15, 
+                        guncelDeger: '', 
+                        dates: ['2026-01-01'], 
+                        amts: [7225], 
+                        sDates: [], 
+                        sAmts: [] 
+                    }
+                ];
+                sepetleriKaydet();
             }
-        };
 
-        request.onsuccess = function(e) {
-            db = e.target.result;
-            verileriYukle();
-        };
-
-        function verileriYukle() {
-            const tx = db.transaction("portfolios", "readonly");
-            const store = tx.objectStore("portfolios");
-            const getAll = store.getAll();
-
-            getAll.onsuccess = function() {
-                sepetler = getAll.result || [];
-                if (sepetler.length === 0) {
-                    sepetler = [
-                        { 
-                            id: 's1', 
-                            name: 'Midas / BIST', 
-                            currency: 'TL', 
-                            yillik: 50.49, 
-                            hedef: 15, 
-                            guncelDeger: '', 
-                            dates: ['2026-06-15', '2026-07-01'], 
-                            amts: [25000, 10000], 
-                            sDates: ['2026-08-19'], 
-                            sAmts: [9896] 
-                        },
-                        { 
-                            id: 's2', 
-                            name: 'YAY Fonu', 
-                            currency: 'TL', 
-                            yillik: 50.49, 
-                            hedef: 15, 
-                            guncelDeger: '', 
-                            dates: ['2026-06-17', '2026-07-16', '2026-07-30'], 
-                            amts: [32285, 27669, 13268], 
-                            sDates: [], 
-                            sAmts: [] 
-                        },
-                        { 
-                            id: 's3', 
-                            name: 'PAXG / Altın', 
-                            currency: 'USD', 
-                            yillik: 5, 
-                            hedef: 15, 
-                            guncelDeger: '', 
-                            dates: ['2026-01-01'], 
-                            amts: [7225], 
-                            sDates: [], 
-                            sAmts: [] 
-                        }
-                    ];
-                    sepetleriKaydet();
-                }
+            if (!aktifSepetId && sepetler.length > 0) {
                 aktifSepetId = sepetler[0].id;
-                sepetBarCiz();
+            } else if (aktifSepetId && !sepetler.some(s => s.id === aktifSepetId)) {
+                aktifSepetId = sepetler[0].id;
+            }
+
+            sepetBarCiz();
+            if (aktifSepetId) {
                 sepetYukle(aktifSepetId);
-            };
-        }
+            }
+        });
 
         function sepetleriKaydet() {
-            if (!db) return;
-            const tx = db.transaction("portfolios", "readwrite");
-            const store = tx.objectStore("portfolios");
-            sepetler.forEach(s => store.put(s));
+            database.ref('portfolios').set(sepetler);
         }
 
         function sepetBarCiz() {
@@ -383,20 +382,14 @@
             sepetler.push(yeniSepet);
             aktifSepetId = yeniId;
             sepetleriKaydet();
-            sepetBarCiz();
-            sepetYukle(yeniId);
         }
 
         function sepetiSil() {
             if (sepetler.length <= 1) return alert("En az 1 sepet kalmalıdır!");
             if (confirm("Bu sepeti silmek istediğine emin misin?")) {
-                const tx = db.transaction("portfolios", "readwrite");
-                tx.objectStore("portfolios").delete(aktifSepetId);
-
                 sepetler = sepetler.filter(s => s.id !== aktifSepetId);
                 aktifSepetId = sepetler[0].id;
-                sepetBarCiz();
-                sepetYukle(aktifSepetId);
+                sepetleriKaydet();
             }
         }
 
@@ -519,7 +512,6 @@
             const yillik = (parseFloat(document.getElementById('yillikEnf').value) || 0) / 100;
             const karMarji = (parseFloat(document.getElementById('hedefKar').value) || 0) / 100;
             
-            // DÜZELTME: Enflasyon ve Reel Kâr oranlarının her ikisi de günlük pro-rata bazda hesaplanıyor
             const gunlukEnf = Math.pow(1 + yillik, 1 / 365) - 1;
             const gunlukKar = Math.pow(1 + karMarji, 1 / 365) - 1;
             const bugun = new Date();
@@ -609,7 +601,6 @@
                     const karBicimi = Math.pow(1 + gunlukKar, diffDays);
                     
                     kalanReelDeger += alim.kalanAmt * enfBicimi;
-                    // DÜZELTME: Hedef satış değeri artık enflasyon * günlük pro-rata reel kâr büyümesiyle hesaplanıyor
                     kalanHedefDeger += alim.kalanAmt * enfBicimi * karBicimi;
                     
                     agirlikliGunToplam += alim.kalanAmt * diffDays;
@@ -618,12 +609,14 @@
 
             const agirlikliOrtVade = kalanAnapara > 0 ? Math.round(agirlikliGunToplam / kalanAnapara) : 0;
 
+            // Verileri güncelle ve Firebase'e kaydet
             sepet.currency = curr;
             sepet.yillik = document.getElementById('yillikEnf').value;
             sepet.hedef = document.getElementById('hedefKar').value;
             sepet.guncelDeger = document.getElementById('guncelPiyasaDegeri').value;
             sepet.dates = saveDates; sepet.amts = saveAmts;
             sepet.sDates = saveSDates; sepet.sAmts = saveSAmts;
+            
             sepetleriKaydet();
 
             const cebtekiKar = toplamSatisTutari - satilanKisminMaliyeti;
@@ -903,4 +896,3 @@
     </script>
 </body>
 </html>
-
