@@ -74,11 +74,6 @@
 
         .chart-container { position: relative; width: 100%; height: 260px; margin: 0 auto; }
         .line-chart-container { position: relative; width: 100%; height: 200px; margin-top: 10px; }
-        .fifo-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
-        .fifo-table th, .fifo-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #232936; }
-        .fifo-table th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 9px; }
-        .fifo-progress { height: 6px; background: #1f293d; border-radius: 3px; overflow: hidden; margin-top: 3px; }
-        .fifo-progress-bar { height: 100%; background: var(--accent-orange); }
     </style>
 </head>
 <body>
@@ -172,26 +167,6 @@
         <div id="satislarListesi"></div>
     </div>
 
-    <!-- 2. FIFO İZLEME TABLOSU -->
-    <div class="card" style="border-color: rgba(245, 158, 11, 0.2);">
-        <div class="card-title" style="color: var(--accent-orange);">
-            <span>📋 ALIM BAZLI SATIŞ DETAYLANDIRMASI (FIFO)</span>
-        </div>
-        <div id="fifoContainer">
-            <table class="fifo-table">
-                <thead>
-                    <tr>
-                        <th>Tarih</th>
-                        <th>Alım Tutarı</th>
-                        <th>Satılan Miktar</th>
-                        <th>Durum</th>
-                    </tr>
-                </thead>
-                <tbody id="fifoBody"></tbody>
-            </table>
-        </div>
-    </div>
-
     <!-- HESAPLAMA SONUÇLARI -->
     <div class="result-box" id="output">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
@@ -275,11 +250,11 @@
         let aktifSepetId = null;
         let pieChartInstance = null;
         let lineChartInstance = null;
+        let isInitialLoad = true;
 
         // Firebase'den Verileri Dinle (Realtime Sync)
         database.ref('portfolios').on('value', (snapshot) => {
             const data = snapshot.val();
-            // Eğer veritabanında 7'den az sepet varsa, eksiksiz tam sepet listesini zorla yükle (Senin tüm sepetlerin kaybolmasın diye)
             if (!data || !Array.isArray(data) || data.length < 7) {
                 sepetler = [
                     { id: 's1', name: 'Midas / BIST', currency: 'TL', yillik: 50.49, hedef: 15, guncelDeger: '30624', dates: ['2026-06-15', '2026-07-01'], amts: [25000, 10000], sDates: ['2026-08-19'], sAmts: [9896] },
@@ -302,8 +277,9 @@
             }
 
             sepetBarCiz();
-            if (aktifSepetId) {
+            if (aktifSepetId && isInitialLoad) {
                 sepetYukle(aktifSepetId);
+                isInitialLoad = false;
             }
         });
 
@@ -351,6 +327,7 @@
             sepetler.push(yeniSepet);
             aktifSepetId = yeniId;
             sepetleriKaydet();
+            sepetYukle(aktifSepetId);
         }
 
         function sepetiSil() {
@@ -359,6 +336,7 @@
                 sepetler = sepetler.filter(s => s.id !== aktifSepetId);
                 aktifSepetId = sepetler[0].id;
                 sepetleriKaydet();
+                sepetYukle(aktifSepetId);
             }
         }
 
@@ -397,9 +375,14 @@
             row.innerHTML = `
                 <div class="row-date"><input type="date" class="${type}-date" value="${tarih}" onchange="otomatikHesapla()"></div>
                 <div class="row-amt"><input type="number" class="${type}-amt" placeholder="Tutar" value="${tutar}" oninput="otomatikHesapla()"></div>
-                <button class="btn-del" onclick="this.parentElement.remove(); otomatikHesapla();">✕</button>
+                <button class="btn-del" onclick="satirSil(this)">✕</button>
             `;
             list.appendChild(row);
+        }
+
+        function satirSil(btn) {
+            btn.parentElement.remove();
+            otomatikHesapla();
         }
 
         function parcaEkle(tarih = '', tutar = '') {
@@ -537,24 +520,6 @@
                 }
             }
 
-            const fifoBody = document.getElementById('fifoBody');
-            fifoBody.innerHTML = '';
-            alimlar.forEach(a => {
-                const satilanTutar = a.origAmt - a.kalanAmt;
-                const yuzde = ((satilanTutar / a.origAmt) * 100).toFixed(1);
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${a.dateStr}</td>
-                    <td>${a.origAmt.toLocaleString('tr-TR')} ${symbol}</td>
-                    <td style="color:var(--accent-orange);">${satilanTutar.toLocaleString('tr-TR')} ${symbol} (%${yuzde})</td>
-                    <td>
-                        <div style="font-size:9px; color:var(--text-muted);">${a.kalanAmt > 0 ? 'Aktif' : 'Tamamen Satıldı'}</div>
-                        <div class="fifo-progress"><div class="fifo-progress-bar" style="width:${yuzde}%;"></div></div>
-                    </td>
-                `;
-                fifoBody.appendChild(tr);
-            });
-
             let kalanAnapara = 0;
             let kalanReelDeger = 0;
             let kalanHedefDeger = 0;
@@ -578,7 +543,6 @@
 
             const agirlikliOrtVade = kalanAnapara > 0 ? Math.round(agirlikliGunToplam / kalanAnapara) : 0;
 
-            // Verileri güncelle ve Firebase'e kaydet
             sepet.currency = curr;
             sepet.yillik = document.getElementById('yillikEnf').value;
             sepet.hedef = document.getElementById('hedefKar').value;
@@ -831,7 +795,7 @@
                     }
                 });
 
-                dataAnapara.path ? dataAnapara.push(aPara) : dataAnapara.push(aPara);
+                dataAnapara.push(aPara);
                 dataEnflasyon.push(enfPara);
                 dataHedef.push(hedefPara);
             }
