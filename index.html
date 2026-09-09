@@ -93,7 +93,6 @@
             <span>🍕 GENEL PORTFÖY DAĞILIMI</span>
             <span id="toplamVarlikHeader" style="color:var(--accent-green); font-size:12px; font-weight:bold;">Toplam: 0 TL</span>
         </div>
-        <!-- GENEL TOPLAM HEDEF / BAŞABAŞ ÖZETİ -->
         <div id="genelPortfoyOzet" style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
             <div><span style="color:var(--text-muted);">Toplam Maliyet:</span> <strong id="genelToplamMaliyet" style="color:#fff;">0 TL</strong></div>
             <div><span style="color:var(--text-muted);">Genel Başabaş:</span> <strong id="genelToplamBasabas" style="color:#10b981;">0 TL</strong></div>
@@ -276,54 +275,24 @@
         let aktifSepetId = null;
         let pieChartInstance = null;
         let lineChartInstance = null;
-        let isSaving = false;
 
         // Firebase'den Verileri Dinle (Realtime Sync)
         database.ref('portfolios').on('value', (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                sepetler = data;
-            } else {
-                // İlk kurulum varsayılan sepetler
+            // Eğer veritabanında 7'den az sepet varsa, eksiksiz tam sepet listesini zorla yükle (Senin tüm sepetlerin kaybolmasın diye)
+            if (!data || !Array.isArray(data) || data.length < 7) {
                 sepetler = [
-                    { 
-                        id: 's1', 
-                        name: 'Midas / BIST', 
-                        currency: 'TL', 
-                        yillik: 50.49, 
-                        hedef: 15, 
-                        guncelDeger: '', 
-                        dates: ['2026-06-15', '2026-07-01'], 
-                        amts: [25000, 10000], 
-                        sDates: ['2026-08-19'], 
-                        sAmts: [9896] 
-                    },
-                    { 
-                        id: 's2', 
-                        name: 'YAY Fonu', 
-                        currency: 'TL', 
-                        yillik: 50.49, 
-                        hedef: 15, 
-                        guncelDeger: '', 
-                        dates: ['2026-06-17', '2026-07-16', '2026-07-30'], 
-                        amts: [32285, 27669, 13268], 
-                        sDates: [], 
-                        sAmts: [] 
-                    },
-                    { 
-                        id: 's3', 
-                        name: 'PAXG / Altın', 
-                        currency: 'USD', 
-                        yillik: 5, 
-                        hedef: 15, 
-                        guncelDeger: '', 
-                        dates: ['2026-01-01'], 
-                        amts: [7225], 
-                        sDates: [], 
-                        sAmts: [] 
-                    }
+                    { id: 's1', name: 'Midas / BIST', currency: 'TL', yillik: 50.49, hedef: 15, guncelDeger: '30624', dates: ['2026-06-15', '2026-07-01'], amts: [25000, 10000], sDates: ['2026-08-19'], sAmts: [9896] },
+                    { id: 's2', name: 'YAY Fonu', currency: 'TL', yillik: 50.49, hedef: 15, guncelDeger: '', dates: ['2026-06-17', '2026-07-16', '2026-07-30'], amts: [32285, 27669, 13268], sDates: [], sAmts: [] },
+                    { id: 's3', name: 'PAXG / Altın', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: ['2026-01-01'], amts: [7225], sDates: [], sAmts: [] },
+                    { id: 's4', name: 'NVDAB', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
+                    { id: 's5', name: 'GOOGLB', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
+                    { id: 's6', name: 'UUUU', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
+                    { id: 's7', name: 'NAKİT USD', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] }
                 ];
                 sepetleriKaydet();
+            } else {
+                sepetler = data;
             }
 
             if (!aktifSepetId && sepetler.length > 0) {
@@ -862,7 +831,7 @@
                     }
                 });
 
-                dataAnapara.push(aPara);
+                dataAnapara.path ? dataAnapara.push(aPara) : dataAnapara.push(aPara);
                 dataEnflasyon.push(enfPara);
                 dataHedef.push(hedefPara);
             }
