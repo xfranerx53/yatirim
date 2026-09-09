@@ -6,7 +6,7 @@
     <title>Çoklu Portföy Engine (TL / USD)</title>
     <!-- Chart.js Entegrasyonu -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Chart.js DataLabels Eklentisi (Dilim üstü yazılar için) -->
+    <!-- Chart.js DataLabels Eklentisi -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <!-- Firebase SDK (Compat Sürümleri) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -143,8 +143,11 @@
                 <input type="number" id="hedefKar" value="15" step="1" oninput="otomatikHesapla()">
             </div>
             <div style="flex:1;" id="usdKurBox">
-                <label>USD / TL Kuru</label>
-                <input type="number" id="usdKur" value="34.00" step="0.1" oninput="otomatikHesapla()">
+                <label style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>USD / TL Kuru</span>
+                    <span id="kurDurum" style="color:var(--accent-green); font-size:9px;">(Canlı Çekiliyor...)</span>
+                </label>
+                <input type="number" id="usdKur" value="48.47" step="0.0001" oninput="otomatikHesapla()">
             </div>
         </div>
     </div>
@@ -252,6 +255,29 @@
         let lineChartInstance = null;
         let isInitialLoad = true;
 
+        // Canlı Kur Çekme Fonksiyonu (Yedekli ve Garantili)
+        async function kurGetirVeGuncelle() {
+            const kurInput = document.getElementById('usdKur');
+            const kurDurum = document.getElementById('kurDurum');
+            try {
+                let response = await fetch('https://api.frankfurter.app/latest?from=USD&to=TRY');
+                if (!response.ok) throw new Error('Frankfurter yanıt vermedi');
+                let data = await response.json();
+                kurInput.value = data.rates.TRY;
+                if(kurDurum) kurDurum.innerText = "(Canlı Çekildi)";
+            } catch (error) {
+                try {
+                    let yedekResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+                    let yedekData = await yedekResponse.json();
+                    kurInput.value = yedekData.rates.TRY;
+                    if(kurDurum) kurDurum.innerText = "(Yedekten Çekildi)";
+                } catch (e) {
+                    if(kurDurum) kurDurum.innerText = "(Manuel / Son Değer)";
+                }
+            }
+            otomatikHesapla();
+        }
+
         // Firebase'den Verileri Dinle (Realtime Sync)
         database.ref('portfolios').on('value', (snapshot) => {
             const data = snapshot.val();
@@ -280,6 +306,7 @@
             if (aktifSepetId && isInitialLoad) {
                 sepetYukle(aktifSepetId);
                 isInitialLoad = false;
+                kurGetirVeGuncelle(); // Sayfa açılışında kuru canlı çek
             }
         });
 
