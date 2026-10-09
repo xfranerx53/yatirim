@@ -78,10 +78,16 @@
     </style>
 </head>
 <body>
-    <div id="loginOverlay" style="position:fixed;inset:0;background:#0b0e14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#f3f4f6;font-family:sans-serif;padding:20px;text-align:center;">
-        <div style="font-size:20px;font-weight:bold;">Portföy Takip</div>
-        <div id="loginMsg" style="color:#9ca3af;font-size:14px;">Devam etmek için giriş yapın</div>
-        <button onclick="girisYap()" style="background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px 22px;font-size:16px;">Google ile Giriş</button>
+    <div id="loginOverlay" style="position:fixed;inset:0;background:#0b0e14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#f3f4f6;font-family:sans-serif;padding:20px;">
+        <form onsubmit="girisYap(event)" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:20px;font-weight:bold;text-align:center;">Portföy Takip</div>
+            <input id="girisKullanici" type="text" placeholder="Kullanıcı adı" autocomplete="username" autocapitalize="none" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
+            <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaKullanici" style="width:18px;height:18px;"> Kullanıcı adını hatırla</label>
+            <input id="girisSifre" type="password" placeholder="Şifre" autocomplete="current-password" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
+            <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaSifre" style="width:18px;height:18px;"> Şifreyi hatırla</label>
+            <div id="loginMsg" style="color:#ef4444;font-size:13px;min-height:18px;text-align:center;"></div>
+            <button type="submit" style="background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;font-size:16px;">Giriş Yap</button>
+        </form>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;padding:6px 10px;font-size:12px;">
         <button onclick="yedekIndir()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">⬇ Yedek Al</button>
@@ -268,10 +274,47 @@
         let dinlemeBasladi = false;
         let kayitHazir = false; // veri başarıyla okunmadan yazma yapılmaz
 
-        function girisYap() {
-            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => {
-                document.getElementById('loginMsg').innerText = 'Giriş hatası: ' + e.message;
-            });
+        const EPOSTA_ALAN = '@yatirim.app';
+        (function formuDoldur() {
+            try {
+                const k = localStorage.getItem('kayitliKullanici');
+                const p = localStorage.getItem('kayitliSifre');
+                if (k) { document.getElementById('girisKullanici').value = k; document.getElementById('hatirlaKullanici').checked = true; }
+                if (p) { document.getElementById('girisSifre').value = atob(p); document.getElementById('hatirlaSifre').checked = true; }
+            } catch (e) {}
+        })();
+
+        function girisYap(ev) {
+            if (ev) ev.preventDefault();
+            const msg = document.getElementById('loginMsg');
+            let kullanici = document.getElementById('girisKullanici').value.trim().toLowerCase();
+            const sifre = document.getElementById('girisSifre').value;
+            if (!kullanici || !sifre) { msg.innerText = 'Kullanıcı adı ve şifre girin'; return; }
+            const eposta = kullanici.includes('@') ? kullanici : kullanici + EPOSTA_ALAN;
+            const hatirlaS = document.getElementById('hatirlaSifre').checked;
+            const hatirlaK = document.getElementById('hatirlaKullanici').checked;
+            msg.style.color = '#9ca3af'; msg.innerText = 'Giriş yapılıyor...';
+
+            const kalicilik = (hatirlaS || hatirlaK) ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
+            auth.setPersistence(kalicilik)
+                .then(() => auth.signInWithEmailAndPassword(eposta, sifre))
+                .then(() => {
+                    try {
+                        if (hatirlaK) localStorage.setItem('kayitliKullanici', kullanici); else localStorage.removeItem('kayitliKullanici');
+                        if (hatirlaS) localStorage.setItem('kayitliSifre', btoa(sifre)); else localStorage.removeItem('kayitliSifre');
+                    } catch (e) {}
+                })
+                .catch(e => {
+                    msg.style.color = '#ef4444';
+                    const m = {
+                        'auth/invalid-credential': 'Kullanıcı adı veya şifre hatalı',
+                        'auth/wrong-password': 'Şifre hatalı',
+                        'auth/user-not-found': 'Kullanıcı bulunamadı',
+                        'auth/operation-not-allowed': 'Firebase\'de E-posta/Şifre girişi etkin değil',
+                        'auth/too-many-requests': 'Çok fazla deneme, biraz bekleyin'
+                    };
+                    msg.innerText = m[e.code] || ('Giriş hatası: ' + e.code);
+                });
         }
         function cikisYap() { auth.signOut().then(() => location.reload()); }
 
