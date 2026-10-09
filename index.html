@@ -85,8 +85,10 @@
             <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaKullanici" style="width:18px;height:18px;"> Kullanıcı adını hatırla</label>
             <input id="girisSifre" type="password" placeholder="Şifre" autocomplete="current-password" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
             <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaSifre" style="width:18px;height:18px;"> Şifreyi hatırla</label>
+            <input id="girisSifre2" type="password" placeholder="Şifre tekrar" autocomplete="new-password" style="display:none;padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
             <div id="loginMsg" style="color:#ef4444;font-size:13px;min-height:18px;text-align:center;"></div>
-            <button type="submit" style="background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;font-size:16px;">Giriş Yap</button>
+            <button type="submit" id="girisBtn" style="background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;font-size:16px;">Giriş Yap</button>
+            <button type="button" id="modBtn" onclick="modDegistir()" style="background:transparent;color:#60a5fa;border:0;font-size:14px;padding:6px;">Hesabın yok mu? Kayıt ol</button>
         </form>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;padding:6px 10px;font-size:12px;">
@@ -284,20 +286,36 @@
             } catch (e) {}
         })();
 
+        let kayitModu = false;
+        function modDegistir() {
+            kayitModu = !kayitModu;
+            document.getElementById('girisSifre2').style.display = kayitModu ? 'block' : 'none';
+            document.getElementById('girisBtn').innerText = kayitModu ? 'Kayıt Ol' : 'Giriş Yap';
+            document.getElementById('modBtn').innerText = kayitModu ? 'Hesabın var mı? Giriş yap' : 'Hesabın yok mu? Kayıt ol';
+            document.getElementById('girisSifre').autocomplete = kayitModu ? 'new-password' : 'current-password';
+            document.getElementById('loginMsg').innerText = '';
+        }
+
         function girisYap(ev) {
             if (ev) ev.preventDefault();
             const msg = document.getElementById('loginMsg');
-            let kullanici = document.getElementById('girisKullanici').value.trim().toLowerCase();
+            msg.style.color = '#ef4444';
+            const kullanici = document.getElementById('girisKullanici').value.trim().toLowerCase();
             const sifre = document.getElementById('girisSifre').value;
             if (!kullanici || !sifre) { msg.innerText = 'Kullanıcı adı ve şifre girin'; return; }
+            if (kayitModu) {
+                if (!kullanici.includes('@') && !/^[a-z0-9._-]{3,30}$/.test(kullanici)) { msg.innerText = 'Kullanıcı adı 3-30 karakter olmalı (harf, rakam, . _ -)'; return; }
+                if (sifre.length < 6) { msg.innerText = 'Şifre en az 6 karakter olmalı'; return; }
+                if (sifre !== document.getElementById('girisSifre2').value) { msg.innerText = 'Şifreler eşleşmiyor'; return; }
+            }
             const eposta = kullanici.includes('@') ? kullanici : kullanici + EPOSTA_ALAN;
             const hatirlaS = document.getElementById('hatirlaSifre').checked;
             const hatirlaK = document.getElementById('hatirlaKullanici').checked;
-            msg.style.color = '#9ca3af'; msg.innerText = 'Giriş yapılıyor...';
+            msg.style.color = '#9ca3af'; msg.innerText = kayitModu ? 'Hesap oluşturuluyor...' : 'Giriş yapılıyor...';
 
             const kalicilik = (hatirlaS || hatirlaK) ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
             auth.setPersistence(kalicilik)
-                .then(() => auth.signInWithEmailAndPassword(eposta, sifre))
+                .then(() => kayitModu ? auth.createUserWithEmailAndPassword(eposta, sifre) : auth.signInWithEmailAndPassword(eposta, sifre))
                 .then(() => {
                     try {
                         if (hatirlaK) localStorage.setItem('kayitliKullanici', kullanici); else localStorage.removeItem('kayitliKullanici');
@@ -310,10 +328,12 @@
                         'auth/invalid-credential': 'Kullanıcı adı veya şifre hatalı',
                         'auth/wrong-password': 'Şifre hatalı',
                         'auth/user-not-found': 'Kullanıcı bulunamadı',
+                        'auth/email-already-in-use': 'Bu kullanıcı adı zaten alınmış',
+                        'auth/weak-password': 'Şifre çok zayıf (en az 6 karakter)',
                         'auth/operation-not-allowed': 'Firebase\'de E-posta/Şifre girişi etkin değil',
                         'auth/too-many-requests': 'Çok fazla deneme, biraz bekleyin'
                     };
-                    msg.innerText = m[e.code] || ('Giriş hatası: ' + e.code);
+                    msg.innerText = m[e.code] || ('Hata: ' + e.code);
                 });
         }
         function cikisYap() { auth.signOut().then(() => location.reload()); }
@@ -389,17 +409,26 @@
             ];
         }
 
+        function dbYol() { return 'users/' + auth.currentUser.uid + '/portfolios'; }
+
         function verileriDinle() {
-            database.ref('portfolios').on('value', (snapshot) => {
+            database.ref(dbYol()).on('value', (snapshot) => {
                 if (snapshot.exists()) {
                     let data = snapshot.val();
                     if (!Array.isArray(data)) data = Object.values(data);
                     data = data.filter(x => x && x.id);
                     sepetler = data.length ? data : varsayilanSepetler();
                 } else {
-                    // Sadece veritabanı gerçekten boşsa varsayılan oluştur
-                    sepetler = varsayilanSepetler();
-                    database.ref('portfolios').set(sepetler);
+                    // Kullanıcının verisi yok: eski ortak yoldan taşı (sadece eski sahibe izin verir), yoksa varsayılan oluştur
+                    kayitHazir = false;
+                    database.ref('portfolios').once('value').then(old => {
+                        let d = old.exists() ? old.val() : null;
+                        if (d && !Array.isArray(d)) d = Object.values(d);
+                        return d && d.length ? d : varsayilanSepetler();
+                    }).catch(() => varsayilanSepetler())
+                      .then(d => database.ref(dbYol()).set(d))
+                      .catch(e => alert('Veri oluşturulamadı: ' + e.code));
+                    return;
                 }
                 kayitHazir = true;
 
@@ -427,7 +456,7 @@
         }
         function sepetleriKaydetHemen() {
             if (!kayitHazir) return;
-            database.ref('portfolios').set(sepetler).catch(e => alert('Kaydedilemedi: ' + e.code));
+            database.ref(dbYol()).set(sepetler).catch(e => alert('Kaydedilemedi: ' + e.code));
         }
 
         function sepetBarCiz() {
