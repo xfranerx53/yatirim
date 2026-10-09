@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Çoklu Portföy Engine (TL / USD)</title>
     <!-- Chart.js Entegrasyonu -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
     <!-- Chart.js DataLabels Eklentisi -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <!-- Firebase SDK (Compat Sürümleri) -->
@@ -84,7 +84,7 @@
             <input id="girisKullanici" type="text" placeholder="Kullanıcı adı" autocomplete="username" autocapitalize="none" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
             <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaKullanici" style="width:18px;height:18px;"> Kullanıcı adını hatırla</label>
             <input id="girisSifre" type="password" placeholder="Şifre" autocomplete="current-password" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
-            <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaSifre" style="width:18px;height:18px;"> Şifreyi hatırla</label>
+            <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaSifre" style="width:18px;height:18px;"> Oturumu açık tut</label>
             <input id="girisSifre2" type="password" placeholder="Şifre tekrar" autocomplete="new-password" style="display:none;padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
             <div id="loginMsg" style="color:#ef4444;font-size:13px;min-height:18px;text-align:center;"></div>
             <button type="submit" id="girisBtn" style="background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;font-size:16px;">Giriş Yap</button>
@@ -94,6 +94,7 @@
     <div style="display:flex;gap:8px;justify-content:flex-end;padding:6px 10px;font-size:12px;">
         <button onclick="yedekIndir()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">⬇ Yedek Al</button>
         <button onclick="document.getElementById('yedekDosya').click()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">⬆ Yedek Yükle</button>
+        <button onclick="csvIndir()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">CSV</button>
         <button onclick="cikisYap()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">Çıkış</button>
         <input type="file" id="yedekDosya" accept=".json" style="display:none" onchange="yedekYukle(this)">
     </div>
@@ -170,6 +171,11 @@
                 <input type="number" id="usdKur" value="48.47" step="0.0001" oninput="otomatikHesapla()">
             </div>
         </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><span>📅 PORTFÖY DEĞER GEÇMİŞİ (TL)</span></div>
+        <div class="line-chart-container"><canvas id="historyChart"></canvas></div>
     </div>
 
     <!-- ALIM LİSTESİ -->
@@ -280,9 +286,9 @@
         (function formuDoldur() {
             try {
                 const k = localStorage.getItem('kayitliKullanici');
-                const p = localStorage.getItem('kayitliSifre');
+                localStorage.removeItem('kayitliSifre'); const p = localStorage.getItem('oturumAcik') === '1';
                 if (k) { document.getElementById('girisKullanici').value = k; document.getElementById('hatirlaKullanici').checked = true; }
-                if (p) { document.getElementById('girisSifre').value = atob(p); document.getElementById('hatirlaSifre').checked = true; }
+                if (p) document.getElementById('hatirlaSifre').checked = true;
             } catch (e) {}
         })();
 
@@ -313,13 +319,13 @@
             const hatirlaK = document.getElementById('hatirlaKullanici').checked;
             msg.style.color = '#9ca3af'; msg.innerText = kayitModu ? 'Hesap oluşturuluyor...' : 'Giriş yapılıyor...';
 
-            const kalicilik = (hatirlaS || hatirlaK) ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
+            const kalicilik = hatirlaS ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
             auth.setPersistence(kalicilik)
                 .then(() => kayitModu ? auth.createUserWithEmailAndPassword(eposta, sifre) : auth.signInWithEmailAndPassword(eposta, sifre))
                 .then(() => {
                     try {
                         if (hatirlaK) localStorage.setItem('kayitliKullanici', kullanici); else localStorage.removeItem('kayitliKullanici');
-                        if (hatirlaS) localStorage.setItem('kayitliSifre', btoa(sifre)); else localStorage.removeItem('kayitliSifre');
+                        localStorage.setItem('oturumAcik', hatirlaS ? '1' : '0');
                     } catch (e) {}
                 })
                 .catch(e => {
@@ -341,7 +347,7 @@
         auth.onAuthStateChanged(user => {
             if (user) {
                 document.getElementById('loginOverlay').style.display = 'none';
-                if (!dinlemeBasladi) { dinlemeBasladi = true; verileriDinle(); }
+                if (!dinlemeBasladi) { dinlemeBasladi = true; verileriDinle(); gecmisDinle(); }
             } else {
                 document.getElementById('loginOverlay').style.display = 'flex';
             }
@@ -468,6 +474,47 @@
             database.ref(dbYol()).set(sepetler).catch(e => alert('Kaydedilemedi: ' + e.code));
         }
 
+        let historyChartInstance = null, sonGecmisDeger = null, gecmisZamanlayici = null;
+        function gecmisKaydet(toplamTL) {
+            if (!kayitHazir || !(toplamTL > 0) || !auth.currentUser) return;
+            const deger = Math.round(toplamTL);
+            if (deger === sonGecmisDeger) return;
+            clearTimeout(gecmisZamanlayici);
+            gecmisZamanlayici = setTimeout(() => {
+                const t = new Date();
+                const key = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+                database.ref('users/' + auth.currentUser.uid + '/history/' + key).set(deger).then(() => { sonGecmisDeger = deger; }).catch(() => {});
+            }, 3000);
+        }
+        function gecmisDinle() {
+            database.ref('users/' + auth.currentUser.uid + '/history').on('value', snap => {
+                const v = snap.val() || {};
+                const keys = Object.keys(v).sort();
+                const el = document.getElementById('historyChart');
+                if (!el) return;
+                if (historyChartInstance) historyChartInstance.destroy();
+                historyChartInstance = new Chart(el.getContext('2d'), {
+                    type: 'line',
+                    data: { labels: keys, datasets: [{ label: 'Toplam Değer (TL)', data: keys.map(k => v[k]), borderColor: '#8b5cf6', borderWidth: 2, pointRadius: 2, fill: false }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ca3af', font: { size: 9 } } }, datalabels: { display: false } },
+                        scales: { x: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2738' } }, y: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2738' } } } }
+                });
+            }, () => {});
+        }
+
+        function csvIndir() {
+            const satirlar = [['Sepet', 'Para Birimi', 'Tür', 'Tarih', 'Tutar', 'Maliyet']];
+            sepetler.forEach(s => {
+                (s.dates || []).forEach((d, i) => satirlar.push([s.name, s.currency, 'Alım', d, (s.amts || [])[i], '']));
+                (s.sDates || []).forEach((d, i) => satirlar.push([s.name, s.currency, 'Satış', d, (s.sAmts || [])[i], (s.sCosts || [])[i] || '']));
+            });
+            const csv = '\ufeff' + satirlar.map(r => r.map(x => '"' + String(x ?? '').replace(/"/g, '""') + '"').join(';')).join('\n');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            a.download = 'portfoy-' + new Date().toISOString().slice(0, 10) + '.csv';
+            a.click();
+        }
+
         function sepetBarCiz() {
             const bar = document.getElementById('sepetBar');
             bar.innerHTML = '';
@@ -541,24 +588,26 @@
             }
             if (sepet.sDates) {
                 for (let i = 0; i < sepet.sDates.length; i++) {
-                    parcaEkleHTML('satislarListesi', sepet.sDates[i], sepet.sAmts[i], 's');
+                    parcaEkleHTML('satislarListesi', sepet.sDates[i], sepet.sAmts[i], 's', (sepet.sCosts || [])[i]);
                 }
             }
             paraBirimiAyarla();
             otomatikHesapla();
         }
 
-        function parcaEkleHTML(containerId, tarih, tutar, type) {
+        function parcaEkleHTML(containerId, tarih, tutar, type, maliyet) {
             const list = document.getElementById(containerId);
             const row = document.createElement('div');
             row.className = 'row';
             row.innerHTML = `
                 <div class="row-date"><input type="date" class="${type}-date" onchange="otomatikHesapla()"></div>
-                <div class="row-amt"><input type="number" class="${type}-amt" placeholder="Tutar" oninput="otomatikHesapla()"></div>
+                <div class="row-amt"><input type="number" class="${type}-amt" placeholder="${type === 's' ? 'Satış tutarı' : 'Tutar'}" oninput="otomatikHesapla()"></div>
+                ${type === 's' ? '<div class="row-amt"><input type="number" class="s-cost" placeholder="Maliyet" oninput="otomatikHesapla()"></div>' : ''}
                 <button class="btn-del" onclick="satirSil(this)">✕</button>
             `;
             row.querySelector('.' + type + '-date').value = tarih || '';
             row.querySelector('.' + type + '-amt').value = tutar ?? '';
+            if (type === 's') row.querySelector('.s-cost').value = maliyet ?? '';
             list.appendChild(row);
         }
 
@@ -573,7 +622,7 @@
         }
 
         function satisEkle(tarih = '', tutar = '') {
-            parcaEkleHTML('satislarListesi', tarih, tutar, 's');
+            parcaEkleHTML('satislarListesi', tarih, tutar, 's', '');
             otomatikHesapla();
         }
 
@@ -671,15 +720,17 @@
 
             const sDates = document.querySelectorAll('.s-date');
             const sAmts = document.querySelectorAll('.s-amt');
-            let toplamSatisTutari = 0;
-            const saveSDates = [], saveSAmts = [];
+            const sCostEls = document.querySelectorAll('.s-cost');
+            let toplamSatisTutari = 0, toplamSatilanMaliyetHam = 0;
+            const saveSDates = [], saveSAmts = [], saveSCosts = [];
 
             for (let i = 0; i < sDates.length; i++) {
                 const d = sDates[i].value;
                 const a = parseFloat(sAmts[i].value) || 0;
-                saveSDates.push(d); saveSAmts.push(sAmts[i].value);
+                saveSDates.push(d); saveSAmts.push(sAmts[i].value); saveSCosts.push(sCostEls[i].value);
                 if (a > 0 && d) {
                     toplamSatisTutari += a;
+                    toplamSatilanMaliyetHam += (parseFloat(sCostEls[i].value) || a); // maliyet boşsa satış tutarı kullanılır
                     xirrFlows.push({ date: new Date(d), amount: a });
                 }
             }
@@ -688,7 +739,8 @@
                 xirrFlows.push({ date: bugun, amount: guncelPiyasaDegeri });
             }
 
-            let düsenSatis = toplamSatisTutari;
+            alimlar.sort((x, y) => x.date - y.date);
+            let düsenSatis = toplamSatilanMaliyetHam;
             let satilanKisminMaliyeti = 0;
 
             for (let alim of alimlar) {
@@ -732,11 +784,11 @@
             sepet.hedef = document.getElementById('hedefKar').value;
             sepet.guncelDeger = document.getElementById('guncelPiyasaDegeri').value;
             sepet.dates = saveDates; sepet.amts = saveAmts;
-            sepet.sDates = saveSDates; sepet.sAmts = saveSAmts;
+            sepet.sDates = saveSDates; sepet.sAmts = saveSAmts; sepet.sCosts = saveSCosts;
             
             sepetleriKaydet();
 
-            const cebtekiKar = toplamSatisTutari - satilanKisminMaliyeti;
+            const cebtekiKar = toplamSatisTutari - toplamSatilanMaliyetHam;
             const hedefSatis = kalanHedefDeger;
 
             document.getElementById('resKalanAnapara').innerText = kalanAnapara.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
@@ -848,7 +900,6 @@
                         let d = s.dates[i];
                         if (amt > 0 && d) {
                             sAlimlar.push({ date: new Date(d), origAmt: amt, kalanAmt: amt });
-                            toplamMaliyetTL += (s.currency === 'USD' ? amt * usdKur : amt);
                         }
                     }
                 }
@@ -856,10 +907,12 @@
                 let sSatisToplam = 0;
                 if (s.sAmts) {
                     for (let i = 0; i < s.sAmts.length; i++) {
-                        sSatisToplam += (parseFloat(s.sAmts[i]) || 0);
+                        const sa = parseFloat(s.sAmts[i]) || 0;
+                        sSatisToplam += (parseFloat((s.sCosts || [])[i]) || sa);
                     }
                 }
 
+                sAlimlar.sort((x, y) => x.date - y.date);
                 let dusenSatis = sSatisToplam;
                 for (let alim of sAlimlar) {
                     if (dusenSatis <= 0) break;
@@ -872,6 +925,7 @@
                     }
                 }
 
+                sAlimlar.forEach(al => { toplamMaliyetTL += (s.currency === 'USD' ? al.kalanAmt * usdKur : al.kalanAmt); });
                 let sKalanReel = 0;
                 let sKalanHedef = 0;
                 for (let alim of sAlimlar) {
@@ -901,6 +955,7 @@
 
             document.getElementById('toplamVarlikHeader').innerText = `Toplam: ${toplamTL.toLocaleString('tr-TR', {maximumFractionDigits: 0})} TL`;
             
+            gecmisKaydet(toplamTL);
             document.getElementById('genelToplamMaliyet').innerText = toplamMaliyetTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
             document.getElementById('genelToplamBasabas').innerText = genelToplamBasabasTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
             document.getElementById('genelToplamHedef').innerText = genelToplamHedefTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
@@ -948,7 +1003,7 @@
         }
 
         function cizCizgiGrafik(alimlar, gunlukEnf, gunlukKar) {
-            if (alimlar.length === 0) return;
+            if (alimlar.length === 0) { if (lineChartInstance) { lineChartInstance.destroy(); lineChartInstance = null; } return; }
 
             const datesSorted = [...alimlar].sort((a, b) => a.date - b.date);
             const startDate = datesSorted[0].date;
@@ -960,7 +1015,10 @@
 
             const stepDays = Math.max(1, Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24 * 6)));
 
-            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + stepDays)) {
+            const tarihler = [];
+            for (let t = new Date(startDate); t <= endDate; t.setDate(t.getDate() + stepDays)) tarihler.push(new Date(t));
+            if (tarihler[tarihler.length - 1] < endDate) tarihler.push(endDate);
+            tarihler.forEach(d => {
                 labels.push(d.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' }));
 
                 let aPara = 0;
@@ -969,20 +1027,20 @@
 
                 alimlar.forEach(a => {
                     if (a.date <= d) {
-                        aPara += a.origAmt;
+                        aPara += a.kalanAmt;
                         const diffDays = Math.floor((d - a.date) / (1000 * 60 * 60 * 24));
                         const enfB = Math.pow(1 + gunlukEnf, diffDays);
                         const karB = Math.pow(1 + gunlukKar, diffDays);
                         
-                        enfPara += a.origAmt * enfB;
-                        hedefPara += a.origAmt * enfB * karB;
+                        enfPara += a.kalanAmt * enfB;
+                        hedefPara += a.kalanAmt * enfB * karB;
                     }
                 });
 
                 dataAnapara.push(aPara);
                 dataEnflasyon.push(enfPara);
                 dataHedef.push(hedefPara);
-            }
+            });
 
             const ctx = document.getElementById('lineChart').getContext('2d');
             if (lineChartInstance) lineChartInstance.destroy();
