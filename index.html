@@ -421,13 +421,22 @@
                 } else {
                     // Kullanıcının verisi yok: eski ortak yoldan taşı (sadece eski sahibe izin verir), yoksa varsayılan oluştur
                     kayitHazir = false;
-                    database.ref('portfolios').once('value').then(old => {
-                        let d = old.exists() ? old.val() : null;
-                        if (d && !Array.isArray(d)) d = Object.values(d);
-                        return d && d.length ? d : varsayilanSepetler();
-                    }).catch(() => varsayilanSepetler())
-                      .then(d => database.ref(dbYol()).set(d))
-                      .catch(e => alert('Veri oluşturulamadı: ' + e.code));
+                    const SAHIP_UID = 'cz94pLJnDQQe01c81XNi4R77Yp03';
+                    if (auth.currentUser.uid === SAHIP_UID) {
+                        // Sahip hesabı: eski verileri taşı. Okunamazsa BOŞ VERİ YAZMA, uyar.
+                        database.ref('portfolios').once('value').then(old => {
+                            let d = old.exists() ? old.val() : null;
+                            if (d && !Array.isArray(d)) d = Object.values(d);
+                            d = d ? d.filter(x => x && x.id) : [];
+                            if (!d.length) {
+                                alert('Eski veri (portfolios) bulunamadı. Firebase > Realtime Database > Data sekmesini kontrol edin. Boş veri oluşturulmadı.');
+                                return;
+                            }
+                            return database.ref(dbYol()).set(d);
+                        }).catch(e => alert('Eski veri okunamadı (' + e.code + '). Rules içindeki "portfolios" bölümünü kontrol edin. Boş veri oluşturulmadı.'));
+                    } else {
+                        database.ref(dbYol()).set(varsayilanSepetler()).catch(e => alert('Veri oluşturulamadı: ' + e.code));
+                    }
                     return;
                 }
                 kayitHazir = true;
