@@ -11,6 +11,7 @@
     <!-- Firebase SDK (Compat Sürümleri) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <style>
         :root {
             --bg-color: #0b0e14;
@@ -77,6 +78,17 @@
     </style>
 </head>
 <body>
+    <div id="loginOverlay" style="position:fixed;inset:0;background:#0b0e14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#f3f4f6;font-family:sans-serif;padding:20px;text-align:center;">
+        <div style="font-size:20px;font-weight:bold;">Portföy Takip</div>
+        <div id="loginMsg" style="color:#9ca3af;font-size:14px;">Devam etmek için giriş yapın</div>
+        <button onclick="girisYap()" style="background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px 22px;font-size:16px;">Google ile Giriş</button>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:6px 10px;font-size:12px;">
+        <button onclick="yedekIndir()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">⬇ Yedek Al</button>
+        <button onclick="document.getElementById('yedekDosya').click()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">⬆ Yedek Yükle</button>
+        <button onclick="cikisYap()" style="background:#1f293d;color:#f3f4f6;border:0;border-radius:8px;padding:6px 10px;">Çıkış</button>
+        <input type="file" id="yedekDosya" accept=".json" style="display:none" onchange="yedekYukle(this)">
+    </div>
 
     <div class="header">
         <h1>📊 PORTFÖY & REALİZASYON ENGINE</h1>
@@ -244,10 +256,56 @@
     <script>
         // Firebase Yapılandırması
         const firebaseConfig = {
-            databaseURL: "https://yatirim-a5ba0-default-rtdb.firebaseio.com"
+            apiKey: "AIzaSyBLX94o6Gp606KAxSvcy5kzLAaPqxt-N7s",
+            authDomain: "yatirim-a5ba0.firebaseapp.com",
+            databaseURL: "https://yatirim-a5ba0-default-rtdb.firebaseio.com",
+            projectId: "yatirim-a5ba0",
+            appId: "1:337571063262:web:713cc5dca2d7825fcfa94f"
         };
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
+        const auth = firebase.auth();
+        let dinlemeBasladi = false;
+        let kayitHazir = false; // veri başarıyla okunmadan yazma yapılmaz
+
+        function girisYap() {
+            auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => {
+                document.getElementById('loginMsg').innerText = 'Giriş hatası: ' + e.message;
+            });
+        }
+        function cikisYap() { auth.signOut().then(() => location.reload()); }
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                if (!dinlemeBasladi) { dinlemeBasladi = true; verileriDinle(); }
+            } else {
+                document.getElementById('loginOverlay').style.display = 'flex';
+            }
+        });
+
+        function yedekIndir() {
+            const blob = new Blob([JSON.stringify(sepetler, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'portfoy-yedek-' + new Date().toISOString().slice(0, 10) + '.json';
+            a.click();
+        }
+        function yedekYukle(input) {
+            const f = input.files[0]; if (!f) return;
+            const r = new FileReader();
+            r.onload = () => {
+                try {
+                    const d = JSON.parse(r.result);
+                    if (!Array.isArray(d) || !d.length || !d.every(x => x && x.id)) throw new Error('Geçersiz yedek');
+                    if (!confirm('Mevcut veriler yedekle değiştirilecek. Emin misin?')) return;
+                    sepetler = d; aktifSepetId = d[0].id;
+                    sepetleriKaydetHemen(); sepetBarCiz(); sepetYukle(aktifSepetId);
+                } catch (e) { alert('Yedek okunamadı: ' + e.message); }
+                input.value = '';
+            };
+            r.readAsText(f);
+        }
 
         let sepetler = [];
         let aktifSepetId = null;
@@ -263,15 +321,16 @@
                 let response = await fetch('https://api.frankfurter.app/latest?from=USD&to=TRY');
                 if (!response.ok) throw new Error('Frankfurter yanıt vermedi');
                 let data = await response.json();
-                kurInput.value = data.rates.TRY;
+                kurInput.value = data.rates.TRY; try { localStorage.setItem('sonKur', data.rates.TRY); } catch(e) {}
                 if(kurDurum) kurDurum.innerText = "(Canlı Çekildi)";
             } catch (error) {
                 try {
                     let yedekResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
                     let yedekData = await yedekResponse.json();
-                    kurInput.value = yedekData.rates.TRY;
+                    kurInput.value = yedekData.rates.TRY; try { localStorage.setItem('sonKur', yedekData.rates.TRY); } catch(e) {}
                     if(kurDurum) kurDurum.innerText = "(Yedekten Çekildi)";
                 } catch (e) {
+                    try { const k = localStorage.getItem('sonKur'); if (k) kurInput.value = k; } catch(e) {}
                     if(kurDurum) kurDurum.innerText = "(Manuel / Son Değer)";
                 }
             }
@@ -279,39 +338,53 @@
         }
 
         // Firebase'den Verileri Dinle (Realtime Sync)
-        database.ref('portfolios').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data || !Array.isArray(data) || data.length < 7) {
-                sepetler = [
-                    { id: 's1', name: 'Midas / BIST', currency: 'TL', yillik: 50.49, hedef: 15, guncelDeger: '30624', dates: ['2026-06-15', '2026-07-01'], amts: [25000, 10000], sDates: ['2026-08-19'], sAmts: [9896] },
-                    { id: 's2', name: 'YAY Fonu', currency: 'TL', yillik: 50.49, hedef: 15, guncelDeger: '', dates: ['2026-06-17', '2026-07-16', '2026-07-30'], amts: [32285, 27669, 13268], sDates: [], sAmts: [] },
-                    { id: 's3', name: 'PAXG / Altın', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: ['2026-01-01'], amts: [7225], sDates: [], sAmts: [] },
-                    { id: 's4', name: 'NVDAB', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
-                    { id: 's5', name: 'GOOGLB', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
-                    { id: 's6', name: 'UUUU', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
-                    { id: 's7', name: 'NAKİT USD', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] }
-                ];
-                sepetleriKaydet();
-            } else {
-                sepetler = data;
-            }
+        function varsayilanSepetler() {
+            return [
+                { id: 's1', name: 'Midas / BIST', currency: 'TL', yillik: 50.49, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
+                { id: 's2', name: 'YAY Fonu', currency: 'TL', yillik: 50.49, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] },
+                { id: 's3', name: 'PAXG / Altın', currency: 'USD', yillik: 5, hedef: 15, guncelDeger: '', dates: [], amts: [], sDates: [], sAmts: [] }
+            ];
+        }
 
-            if (!aktifSepetId && sepetler.length > 0) {
-                aktifSepetId = sepetler[0].id;
-            } else if (aktifSepetId && !sepetler.some(s => s.id === aktifSepetId)) {
-                aktifSepetId = sepetler[0].id;
-            }
+        function verileriDinle() {
+            database.ref('portfolios').on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    let data = snapshot.val();
+                    if (!Array.isArray(data)) data = Object.values(data);
+                    data = data.filter(x => x && x.id);
+                    sepetler = data.length ? data : varsayilanSepetler();
+                } else {
+                    // Sadece veritabanı gerçekten boşsa varsayılan oluştur
+                    sepetler = varsayilanSepetler();
+                    database.ref('portfolios').set(sepetler);
+                }
+                kayitHazir = true;
 
-            sepetBarCiz();
-            if (aktifSepetId && isInitialLoad) {
-                sepetYukle(aktifSepetId);
-                isInitialLoad = false;
-                kurGetirVeGuncelle(); // Sayfa açılışında kuru canlı çek
-            }
-        });
+                if (!aktifSepetId || !sepetler.some(s => s.id === aktifSepetId)) {
+                    aktifSepetId = sepetler[0].id;
+                }
 
+                sepetBarCiz();
+                if (isInitialLoad) {
+                    sepetYukle(aktifSepetId);
+                    isInitialLoad = false;
+                    kurGetirVeGuncelle();
+                }
+            }, (err) => {
+                kayitHazir = false;
+                alert('Veritabanı okunamadı (' + err.code + '). Kurallar veya giriş hesabını kontrol edin. Veriler değiştirilmedi.');
+            });
+        }
+
+        let kayitZamanlayici = null;
         function sepetleriKaydet() {
-            database.ref('portfolios').set(sepetler);
+            if (!kayitHazir) return;
+            clearTimeout(kayitZamanlayici);
+            kayitZamanlayici = setTimeout(sepetleriKaydetHemen, 600);
+        }
+        function sepetleriKaydetHemen() {
+            if (!kayitHazir) return;
+            database.ref('portfolios').set(sepetler).catch(e => alert('Kaydedilemedi: ' + e.code));
         }
 
         function sepetBarCiz() {
@@ -398,12 +471,13 @@
             const list = document.getElementById(containerId);
             const row = document.createElement('div');
             row.className = 'row';
-            
             row.innerHTML = `
-                <div class="row-date"><input type="date" class="${type}-date" value="${tarih}" onchange="otomatikHesapla()"></div>
-                <div class="row-amt"><input type="number" class="${type}-amt" placeholder="Tutar" value="${tutar}" oninput="otomatikHesapla()"></div>
+                <div class="row-date"><input type="date" class="${type}-date" onchange="otomatikHesapla()"></div>
+                <div class="row-amt"><input type="number" class="${type}-amt" placeholder="Tutar" oninput="otomatikHesapla()"></div>
                 <button class="btn-del" onclick="satirSil(this)">✕</button>
             `;
+            row.querySelector('.' + type + '-date').value = tarih || '';
+            row.querySelector('.' + type + '-amt').value = tutar ?? '';
             list.appendChild(row);
         }
 
@@ -472,11 +546,13 @@
                     fDerivative -= (years * cashflows[j].amount) / Math.pow(1 + rate, years + 1);
                 }
 
-                const newRate = rate - fValue / fDerivative;
+                let newRate = rate - fValue / fDerivative;
+                if (!isFinite(newRate)) return 0;
+                if (newRate <= -0.99) newRate = -0.99;
                 if (Math.abs(newRate - rate) < precision) return newRate * 100;
                 rate = newRate;
             }
-            return rate * 100;
+            return isFinite(rate) ? rate * 100 : 0;
         }
 
         function otomatikHesapla() {
