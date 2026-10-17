@@ -3,6 +3,7 @@
   "short_name": "Portföy",
   "description": "Çoklu sepet (TL/USD) portföy takibi, enflasyon başabaş ve hedef hesaplama",
   "lang": "tr",
+  "id": "/yatirim/portfoy-app",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
