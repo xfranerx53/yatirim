@@ -83,13 +83,15 @@
 
         .chart-container { position: relative; width: 100%; height: 260px; margin: 0 auto; }
         .line-chart-container { position: relative; width: 100%; height: 200px; margin-top: 10px; }
+        #toast { position: fixed; left: 12px; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom)); background: #7f1d1d; color: #fff; padding: 12px 14px; border-radius: 10px; font-size: 13px; z-index: 10000; opacity: 0; pointer-events: none; transition: opacity .2s; }
+        #toast.show { opacity: 1; }
     </style>
 </head>
 <body>
     <div id="loginOverlay" style="position:fixed;inset:0;background:#0b0e14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#f3f4f6;font-family:sans-serif;padding:20px;">
         <form onsubmit="girisYap(event)" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
             <div style="font-size:20px;font-weight:bold;text-align:center;">Portföy Takip</div>
-            <input id="girisKullanici" type="text" placeholder="Kullanıcı adı" autocomplete="username" autocapitalize="none" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
+            <input id="girisKullanici" type="text" placeholder="Kullanıcı adı veya e-posta" autocomplete="username" autocapitalize="none" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
             <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaKullanici" style="width:18px;height:18px;"> Kullanıcı adını hatırla</label>
             <input id="girisSifre" type="password" placeholder="Şifre" autocomplete="current-password" style="padding:14px;border-radius:10px;border:1px solid #232936;background:#1f293d;color:#fff;font-size:16px;">
             <label style="font-size:14px;color:#9ca3af;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hatirlaSifre" style="width:18px;height:18px;"> Oturumu açık tut</label>
@@ -97,6 +99,7 @@
             <div id="loginMsg" style="color:#ef4444;font-size:13px;min-height:18px;text-align:center;"></div>
             <button type="submit" id="girisBtn" style="background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:14px;font-size:16px;">Giriş Yap</button>
             <button type="button" id="modBtn" onclick="modDegistir()" style="background:transparent;color:#60a5fa;border:0;font-size:14px;padding:6px;">Hesabın yok mu? Kayıt ol</button>
+            <button type="button" onclick="sifreSifirla()" style="background:transparent;color:#9ca3af;border:0;font-size:13px;padding:4px;">Şifremi unuttum (e-posta ile kayıtlıysan)</button>
         </form>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;padding:6px 10px;font-size:12px;">
@@ -256,6 +259,7 @@
         </div>
 
         <div class="summary-box">
+            <div id="uyariSatis" style="display:none;color:var(--accent-orange);font-size:11px;margin-bottom:6px;"></div>
             <div class="summary-item">
                 <span style="color:var(--text-muted);">Realize Edilen Satış:</span>
                 <span id="resTotalSatis" style="color: var(--accent-orange); font-weight:bold;">0,00</span>
@@ -276,6 +280,25 @@
     </div>
 
     <script>
+        function bildir(m) {
+            let t = document.getElementById('toast');
+            if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+            t.textContent = m; t.className = 'show';
+            clearTimeout(t._z); t._z = setTimeout(() => { t.className = ''; }, 5000);
+        }
+        function sayi(x) { return parseFloat(x) || 0; }
+        function tarihParse(d) { const p = String(d).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+        function bugunTarih() { const t = new Date(); t.setHours(0, 0, 0, 0); return t; }
+        function norm(x) { return JSON.stringify(x, (k, v) => (Array.isArray(v) && !v.length) ? undefined : v); }
+        function sifreSifirla() {
+            const k = document.getElementById('girisKullanici').value.trim().toLowerCase();
+            const msg = document.getElementById('loginMsg');
+            if (!k.includes('@')) { msg.style.color = '#ef4444'; msg.innerText = 'Sıfırlama için e-posta adresinle kayıt olmuş olmalısın; e-postanı yaz.'; return; }
+            auth.sendPasswordResetEmail(k)
+                .then(() => { msg.style.color = '#10b981'; msg.innerText = 'Sıfırlama bağlantısı e-postana gönderildi'; })
+                .catch(e => { msg.style.color = '#ef4444'; msg.innerText = 'Hata: ' + e.code; });
+        }
+
         // Firebase Yapılandırması
         const firebaseConfig = {
             apiKey: "AIzaSyBLX94o6Gp606KAxSvcy5kzLAaPqxt-N7s",
@@ -378,7 +401,7 @@
                     if (!confirm('Mevcut veriler yedekle değiştirilecek. Emin misin?')) return;
                     sepetler = d; aktifSepetId = d[0].id;
                     sepetleriKaydetHemen(); sepetBarCiz(); sepetYukle(aktifSepetId);
-                } catch (e) { alert('Yedek okunamadı: ' + e.message); }
+                } catch (e) { bildir('Yedek okunamadı: ' + e.message); }
                 input.value = '';
             };
             r.readAsText(f);
@@ -390,29 +413,40 @@
         let lineChartInstance = null;
         let isInitialLoad = true;
 
-        // Canlı Kur Çekme Fonksiyonu (Yedekli ve Garantili)
+        let sonKurZaman = 0;
+        function kurDegeri() {
+            let v = parseFloat(document.getElementById('usdKur').value);
+            if (!(v > 0)) { try { v = parseFloat(localStorage.getItem('sonKur')); } catch (e) {} }
+            return v > 0 ? v : 48.47;
+        }
         async function kurGetirVeGuncelle() {
             const kurInput = document.getElementById('usdKur');
             const kurDurum = document.getElementById('kurDurum');
-            try {
-                let response = await fetch('https://api.frankfurter.app/latest?from=USD&to=TRY');
-                if (!response.ok) throw new Error('Frankfurter yanıt vermedi');
-                let data = await response.json();
-                kurInput.value = data.rates.TRY; try { localStorage.setItem('sonKur', data.rates.TRY); } catch(e) {}
-                if(kurDurum) kurDurum.innerText = "(Canlı Çekildi)";
-            } catch (error) {
+            const kaynaklar = [
+                ['https://api.frankfurter.dev/v1/latest?base=USD&symbols=TRY', '(Canlı Çekildi)'],
+                ['https://api.frankfurter.app/latest?from=USD&to=TRY', '(Canlı Çekildi)'],
+                ['https://api.exchangerate-api.com/v4/latest/USD', '(Yedekten Çekildi)']
+            ];
+            for (const [url, etiket] of kaynaklar) {
                 try {
-                    let yedekResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-                    let yedekData = await yedekResponse.json();
-                    kurInput.value = yedekData.rates.TRY; try { localStorage.setItem('sonKur', yedekData.rates.TRY); } catch(e) {}
-                    if(kurDurum) kurDurum.innerText = "(Yedekten Çekildi)";
-                } catch (e) {
-                    try { const k = localStorage.getItem('sonKur'); if (k) kurInput.value = k; } catch(e) {}
-                    if(kurDurum) kurDurum.innerText = "(Manuel / Son Değer)";
-                }
+                    const r = await fetch(url);
+                    if (!r.ok) continue;
+                    const v = parseFloat((await r.json()).rates.TRY);
+                    if (v > 0) {
+                        kurInput.value = v; sonKurZaman = Date.now();
+                        try { localStorage.setItem('sonKur', v); } catch (e) {}
+                        if (kurDurum) kurDurum.innerText = etiket;
+                        otomatikHesapla(false); return;
+                    }
+                } catch (e) {}
             }
-            otomatikHesapla();
+            try { const k = localStorage.getItem('sonKur'); if (k) kurInput.value = k; } catch (e) {}
+            if (kurDurum) kurDurum.innerText = '(Manuel / Son Değer)';
+            otomatikHesapla(false);
         }
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && dinlemeBasladi && Date.now() - sonKurZaman > 3600000) kurGetirVeGuncelle();
+        });
 
         // Firebase'den Verileri Dinle (Realtime Sync)
         function varsayilanSepetler() {
@@ -425,64 +459,47 @@
 
         function dbYol() { return 'users/' + auth.currentUser.uid + '/portfolios'; }
 
+        let kayitZamanlayici = null, sonYazilan = null;
         function verileriDinle() {
             database.ref(dbYol()).on('value', (snapshot) => {
-                if (snapshot.exists()) {
-                    let data = snapshot.val();
-                    if (!Array.isArray(data)) data = Object.values(data);
-                    data = data.filter(x => x && x.id);
-                    sepetler = data.length ? data : varsayilanSepetler();
-                } else {
-                    // Kullanıcının verisi yok: eski ortak yoldan taşı (sadece eski sahibe izin verir), yoksa varsayılan oluştur
+                if (!snapshot.exists()) {
                     kayitHazir = false;
-                    const SAHIP_UID = 'cz94pLJnDQQe01c81XNi4R77Yp03';
-                    if (auth.currentUser.uid === SAHIP_UID) {
-                        // Sahip hesabı: eski verileri taşı. Okunamazsa BOŞ VERİ YAZMA, uyar.
-                        database.ref('portfolios').once('value').then(old => {
-                            let d = old.exists() ? old.val() : null;
-                            if (d && !Array.isArray(d)) d = Object.values(d);
-                            d = d ? d.filter(x => x && x.id) : [];
-                            if (!d.length) {
-                                alert('Eski veri (portfolios) bulunamadı. Firebase > Realtime Database > Data sekmesini kontrol edin. Boş veri oluşturulmadı.');
-                                return;
-                            }
-                            return database.ref(dbYol()).set(d);
-                        }).catch(e => alert('Eski veri okunamadı (' + e.code + '). Rules içindeki "portfolios" bölümünü kontrol edin. Boş veri oluşturulmadı.'));
-                    } else {
-                        database.ref(dbYol()).set(varsayilanSepetler()).catch(e => alert('Veri oluşturulamadı: ' + e.code));
-                    }
+                    database.ref(dbYol()).set(varsayilanSepetler()).catch(e => bildir('Veri oluşturulamadı: ' + e.code));
                     return;
                 }
-                kayitHazir = true;
-
-                if (!aktifSepetId || !sepetler.some(s => s.id === aktifSepetId)) {
-                    aktifSepetId = sepetler[0].id;
-                }
-
+                let data = snapshot.val();
+                if (!Array.isArray(data)) data = Object.values(data);
+                data = data.filter(x => x && x.id);
+                if (!data.length) data = varsayilanSepetler();
+                const gelen = norm(data);
+                if (kayitHazir && gelen === sonYazilan) return;   // kendi yazımızın yankısı
+                if (kayitHazir && kayitZamanlayici) return;       // bekleyen yerel değişiklik var, ezme
+                sepetler = data; sonYazilan = gelen; kayitHazir = true;
+                if (!aktifSepetId || !sepetler.some(s => s.id === aktifSepetId)) aktifSepetId = sepetler[0].id;
                 sepetBarCiz();
-                if (isInitialLoad) {
-                    sepetYukle(aktifSepetId);
-                    isInitialLoad = false;
-                    kurGetirVeGuncelle();
-                }
+                sepetYukle(aktifSepetId);   // başka cihazdan gelen değişiklik ekrana da yansır
+                if (isInitialLoad) { isInitialLoad = false; kurGetirVeGuncelle(); }
             }, (err) => {
                 kayitHazir = false;
-                alert('Veritabanı okunamadı (' + err.code + '). Kurallar veya giriş hesabını kontrol edin. Veriler değiştirilmedi.');
+                bildir('Veritabanı okunamadı (' + err.code + '). Kurallar veya giriş hesabını kontrol edin. Veriler değiştirilmedi.');
             });
         }
 
-        let kayitZamanlayici = null;
         function sepetleriKaydet() {
             if (!kayitHazir) return;
             clearTimeout(kayitZamanlayici);
             kayitZamanlayici = setTimeout(sepetleriKaydetHemen, 600);
         }
         function sepetleriKaydetHemen() {
+            clearTimeout(kayitZamanlayici); kayitZamanlayici = null;
             if (!kayitHazir) return;
-            database.ref(dbYol()).set(sepetler).catch(e => alert('Kaydedilemedi: ' + e.code));
+            const j = norm(sepetler);
+            if (j === sonYazilan) return;
+            sonYazilan = j;
+            database.ref(dbYol()).set(sepetler).catch(e => { sonYazilan = null; bildir('Kaydedilemedi: ' + e.code); });
         }
 
-        let historyChartInstance = null, sonGecmisDeger = null, gecmisZamanlayici = null;
+                let historyChartInstance = null, sonGecmisDeger = null, gecmisZamanlayici = null;
         function gecmisKaydet(toplamTL) {
             if (!kayitHazir || !(toplamTL > 0) || !auth.currentUser) return;
             const deger = Math.round(toplamTL);
@@ -500,7 +517,12 @@
                 const keys = Object.keys(v).sort();
                 const el = document.getElementById('historyChart');
                 if (!el) return;
-                if (historyChartInstance) historyChartInstance.destroy();
+                if (historyChartInstance) {
+                    historyChartInstance.data.labels = keys;
+                    historyChartInstance.data.datasets[0].data = keys.map(k => v[k]);
+                    historyChartInstance.update('none');
+                    return;
+                }
                 historyChartInstance = new Chart(el.getContext('2d'), {
                     type: 'line',
                     data: { labels: keys, datasets: [{ label: 'Toplam Değer (TL)', data: keys.map(k => v[k]), borderColor: '#8b5cf6', borderWidth: 2, pointRadius: 2, fill: false }] },
@@ -567,7 +589,7 @@
         }
 
         function sepetiSil() {
-            if (sepetler.length <= 1) return alert("En az 1 sepet kalmalıdır!");
+            if (sepetler.length <= 1) return bildir("En az 1 sepet kalmalıdır!");
             if (confirm("Bu sepeti silmek istediğine emin misin?")) {
                 sepetler = sepetler.filter(s => s.id !== aktifSepetId);
                 aktifSepetId = sepetler[0].id;
@@ -600,7 +622,7 @@
                 }
             }
             paraBirimiAyarla();
-            otomatikHesapla();
+            otomatikHesapla(false);
         }
 
         function parcaEkleHTML(containerId, tarih, tutar, type, maliyet) {
@@ -693,315 +715,158 @@
             return isFinite(rate) ? rate * 100 : 0;
         }
 
-        function otomatikHesapla() {
-            const sepet = sepetler.find(s => s.id === aktifSepetId);
-            if (!sepet) return;
-
-            const curr = document.getElementById('sepetCurrency').value;
-            const symbol = curr === 'USD' ? ' $' : ' TL';
-            const usdKur = parseFloat(document.getElementById('usdKur').value) || 34;
-            const guncelPiyasaDegeri = parseFloat(document.getElementById('guncelPiyasaDegeri').value) || 0;
-
-            const yillik = (parseFloat(document.getElementById('yillikEnf').value) || 0) / 100;
-            const karMarji = (parseFloat(document.getElementById('hedefKar').value) || 0) / 100;
-            
-            const gunlukEnf = Math.pow(1 + yillik, 1 / 365) - 1;
-            const gunlukKar = Math.pow(1 + karMarji, 1 / 365) - 1;
-            const bugun = new Date();
-
-            const pDates = document.querySelectorAll('.p-date');
-            const pAmts = document.querySelectorAll('.p-amt');
-            let alimlar = [];
-            let xirrFlows = [];
-            const saveDates = [], saveAmts = [];
-
-            for (let i = 0; i < pDates.length; i++) {
-                const d = pDates[i].value;
-                const a = parseFloat(pAmts[i].value) || 0;
-                saveDates.push(d); saveAmts.push(pAmts[i].value);
+        function sepetHesap(s, bugun) {
+            const gEnf = Math.pow(1 + sayi(s.yillik) / 100, 1 / 365) - 1;
+            const gKar = Math.pow(1 + sayi(s.hedef) / 100, 1 / 365) - 1;
+            const alimlar = [], flows = [];
+            (s.dates || []).forEach((d, i) => {
+                const a = sayi((s.amts || [])[i]);
+                if (a > 0 && d) { const dt = tarihParse(d); alimlar.push({ date: dt, origAmt: a, kalanAmt: a }); flows.push({ date: dt, amount: -a }); }
+            });
+            let satisToplam = 0, maliyetHam = 0, maliyetBos = 0;
+            (s.sDates || []).forEach((d, i) => {
+                const a = sayi((s.sAmts || [])[i]);
                 if (a > 0 && d) {
-                    const alimDate = new Date(d);
-                    alimlar.push({ id: i, date: alimDate, dateStr: d, origAmt: a, kalanAmt: a });
-                    xirrFlows.push({ date: alimDate, amount: -a });
+                    const c = sayi((s.sCosts || [])[i]);
+                    satisToplam += a;
+                    if (c > 0) maliyetHam += c; else { maliyetHam += a; maliyetBos++; }
+                    flows.push({ date: tarihParse(d), amount: a });
                 }
-            }
-
-            const sDates = document.querySelectorAll('.s-date');
-            const sAmts = document.querySelectorAll('.s-amt');
-            const sCostEls = document.querySelectorAll('.s-cost');
-            let toplamSatisTutari = 0, toplamSatilanMaliyetHam = 0;
-            const saveSDates = [], saveSAmts = [], saveSCosts = [];
-
-            for (let i = 0; i < sDates.length; i++) {
-                const d = sDates[i].value;
-                const a = parseFloat(sAmts[i].value) || 0;
-                saveSDates.push(d); saveSAmts.push(sAmts[i].value); saveSCosts.push(sCostEls[i].value);
-                if (a > 0 && d) {
-                    toplamSatisTutari += a;
-                    toplamSatilanMaliyetHam += (parseFloat(sCostEls[i].value) || a); // maliyet boşsa satış tutarı kullanılır
-                    xirrFlows.push({ date: new Date(d), amount: a });
-                }
-            }
-
-            if (guncelPiyasaDegeri > 0) {
-                xirrFlows.push({ date: bugun, amount: guncelPiyasaDegeri });
-            }
-
+            });
             alimlar.sort((x, y) => x.date - y.date);
-            let düsenSatis = toplamSatilanMaliyetHam;
-            let satilanKisminMaliyeti = 0;
-
-            for (let alim of alimlar) {
-                if (düsenSatis <= 0) break;
-                if (alim.kalanAmt <= düsenSatis) {
-                    düsenSatis -= alim.kalanAmt;
-                    satilanKisminMaliyeti += alim.kalanAmt;
-                    alim.kalanAmt = 0;
-                } else {
-                    alim.kalanAmt -= düsenSatis;
-                    satilanKisminMaliyeti += düsenSatis;
-                    düsenSatis = 0;
+            let dusen = maliyetHam, satilanMaliyet = 0;
+            for (const al of alimlar) {
+                if (dusen <= 0) break;
+                const k = Math.min(al.kalanAmt, dusen);
+                al.kalanAmt -= k; dusen -= k; satilanMaliyet += k;
+            }
+            let kalanAnapara = 0, kalanReel = 0, kalanHedef = 0, agirlikliGun = 0;
+            for (const al of alimlar) {
+                if (al.kalanAmt > 0) {
+                    const gun = Math.max(0, Math.round((bugun - al.date) / 86400000));
+                    const enf = Math.pow(1 + gEnf, gun), kar = Math.pow(1 + gKar, gun);
+                    kalanAnapara += al.kalanAmt;
+                    kalanReel += al.kalanAmt * enf;
+                    kalanHedef += al.kalanAmt * enf * kar;
+                    agirlikliGun += al.kalanAmt * gun;
                 }
             }
-
-            let kalanAnapara = 0;
-            let kalanReelDeger = 0;
-            let kalanHedefDeger = 0;
-            let agirlikliGunToplam = 0;
-
-            for (let alim of alimlar) {
-                if (alim.kalanAmt > 0) {
-                    const diffTime = bugun - alim.date;
-                    const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-                    kalanAnapara += alim.kalanAmt;
-                    
-                    const enfBicimi = Math.pow(1 + gunlukEnf, diffDays);
-                    const karBicimi = Math.pow(1 + gunlukKar, diffDays);
-                    
-                    kalanReelDeger += alim.kalanAmt * enfBicimi;
-                    kalanHedefDeger += alim.kalanAmt * enfBicimi * karBicimi;
-                    
-                    agirlikliGunToplam += alim.kalanAmt * diffDays;
-                }
-            }
-
-            const agirlikliOrtVade = kalanAnapara > 0 ? Math.round(agirlikliGunToplam / kalanAnapara) : 0;
-
-            sepet.currency = curr;
-            sepet.yillik = document.getElementById('yillikEnf').value;
-            sepet.hedef = document.getElementById('hedefKar').value;
-            sepet.guncelDeger = document.getElementById('guncelPiyasaDegeri').value;
-            sepet.dates = saveDates; sepet.amts = saveAmts;
-            sepet.sDates = saveSDates; sepet.sAmts = saveSAmts; sepet.sCosts = saveSCosts;
-            
-            sepetleriKaydet();
-
-            const cebtekiKar = toplamSatisTutari - toplamSatilanMaliyetHam;
-            const hedefSatis = kalanHedefDeger;
-
-            document.getElementById('resKalanAnapara').innerText = kalanAnapara.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
-            document.getElementById('resReel').innerText = kalanReelDeger.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
-            document.getElementById('resTarget').innerText = hedefSatis.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
-
-            const badgeEnfFark = document.getElementById('badgeEnfFark');
-            const badgeHedefFark = document.getElementById('badgeHedefFark');
-
-            if (guncelPiyasaDegeri > 0) {
-                if (kalanReelDeger > 0) {
-                    const enfFarkYuzde = ((guncelPiyasaDegeri - kalanReelDeger) / kalanReelDeger) * 100;
-                    if (enfFarkYuzde >= 0) {
-                        badgeEnfFark.innerHTML = `<span class="status-badge badge-above">+%${enfFarkYuzde.toFixed(1)} Üstünde</span>`;
-                    } else {
-                        badgeEnfFark.innerHTML = `<span class="status-badge badge-below">%${enfFarkYuzde.toFixed(1)} Altında</span>`;
-                    }
-                } else {
-                    badgeEnfFark.innerHTML = '';
-                }
-
-                if (hedefSatis > 0) {
-                    const hedefFarkYuzde = ((guncelPiyasaDegeri - hedefSatis) / hedefSatis) * 100;
-                    if (hedefFarkYuzde >= 0) {
-                        badgeHedefFark.innerHTML = `<span class="status-badge badge-above">Hedef Aşıldı (+%${hedefFarkYuzde.toFixed(1)})</span>`;
-                    } else {
-                        badgeHedefFark.innerHTML = `<span class="status-badge badge-below">Hedefe %${Math.abs(hedefFarkYuzde).toFixed(1)} Kaldı</span>`;
-                    }
-                } else {
-                    badgeHedefFark.innerHTML = '';
-                }
-            } else {
-                badgeEnfFark.innerHTML = '';
-                badgeHedefFark.innerHTML = '';
-            }
-
-            document.getElementById('resTotalSatis').innerText = toplamSatisTutari.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
-            document.getElementById('resSatilanMaliyet').innerText = satilanKisminMaliyeti.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
-            document.getElementById('resCebtekiKar').innerText = cebtekiKar.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
-
-            document.getElementById('perfOrtVade').innerText = `${agirlikliOrtVade} Gün (${(agirlikliOrtVade / 30).toFixed(1)} Ay)`;
-
-            xirrFlows.sort((a, b) => a.date - b.date);
-            const xirrVal = calculateXIRR(xirrFlows);
-            const xirrElem = document.getElementById('perfXirr');
-            xirrElem.innerText = `%${xirrVal.toFixed(1)}`;
-            xirrElem.style.color = xirrVal >= (yillik * 100) ? 'var(--accent-green)' : 'var(--accent-red)';
-
-            if (guncelPiyasaDegeri > 0 && kalanReelDeger > 0) {
-                const netReelGetiri = ((guncelPiyasaDegeri - kalanReelDeger) / kalanReelDeger) * 100;
-                const reelGucFark = guncelPiyasaDegeri - kalanReelDeger;
-
-                const getiriElem = document.getElementById('perfNetReelGetiri');
-                getiriElem.innerText = `%${netReelGetiri.toFixed(1)}`;
-                getiriElem.style.color = netReelGetiri >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-
-                const gucElem = document.getElementById('perfReelGuc');
-                gucElem.innerText = (reelGucFark >= 0 ? '+' : '') + reelGucFark.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + symbol;
-                gucElem.style.color = reelGucFark >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-            } else {
-                document.getElementById('perfNetReelGetiri').innerText = '%0.0';
-                document.getElementById('perfReelGuc').innerText = '0,00';
-            }
-
-            const badge = document.getElementById('statusBadge');
-            if (guncelPiyasaDegeri > 0 && hedefSatis > 0) {
-                const fark = ((guncelPiyasaDegeri - hedefSatis) / hedefSatis) * 100;
-                if (guncelPiyasaDegeri >= hedefSatis) {
-                    badge.innerHTML = `<span class="status-badge badge-above">HEDEFE ULAŞILDI (+%${fark.toFixed(1)})</span>`;
-                } else {
-                    badge.innerHTML = `<span class="status-badge badge-below">HEDEFİN ALTINDA (%${fark.toFixed(1)})</span>`;
-                }
-            } else {
-                badge.innerHTML = '';
-            }
-
-            if (curr === 'USD') {
-                const targetTL = hedefSatis * usdKur;
-                document.getElementById('resTargetTL').innerText = targetTL.toLocaleString('tr-TR', {maximumFractionDigits: 2}) + " TL";
-            }
-
-            cizPastaGrafik(usdKur);
-            cizCizgiGrafik(alimlar, gunlukEnf, gunlukKar);
+            return { alimlar, flows, gEnf, gKar, satisToplam, maliyetHam, maliyetBos, satilanMaliyet,
+                kalanAnapara, kalanReel, kalanHedef, ortVade: kalanAnapara > 0 ? Math.round(agirlikliGun / kalanAnapara) : 0 };
         }
 
-        function cizPastaGrafik(usdKur) {
-            const labels = [];
-            const data = [];
-            let toplamTL = 0;
-            let toplamMaliyetTL = 0;
-            let genelToplamBasabasTL = 0;
-            let genelToplamHedefTL = 0;
-            const bugun = new Date();
+        function otomatikHesapla(kaydet = true) {
+            const sepet = sepetler.find(s => s.id === aktifSepetId);
+            if (!sepet) return;
+            const $ = id => document.getElementById(id);
+            const curr = $('sepetCurrency').value;
+            const symbol = curr === 'USD' ? ' $' : ' TL';
+            const usdKur = kurDegeri();
+            const guncel = parseFloat($('guncelPiyasaDegeri').value) || 0;
+            const vals = sel => [...document.querySelectorAll(sel)].map(e => e.value);
 
+            sepet.currency = curr;
+            sepet.yillik = $('yillikEnf').value;
+            sepet.hedef = $('hedefKar').value;
+            sepet.guncelDeger = $('guncelPiyasaDegeri').value;
+            sepet.dates = vals('.p-date'); sepet.amts = vals('.p-amt');
+            sepet.sDates = vals('.s-date'); sepet.sAmts = vals('.s-amt'); sepet.sCosts = vals('.s-cost');
+            if (kaydet) sepetleriKaydet();
+
+            const bugun = bugunTarih();
+            const h = sepetHesap(sepet, bugun);
+            const yillik = sayi(sepet.yillik) / 100;
+            const fmt = x => x.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+            const hedefSatis = h.kalanHedef;
+            const cebtekiKar = h.satisToplam - h.maliyetHam;
+
+            $('resKalanAnapara').innerText = fmt(h.kalanAnapara) + symbol;
+            $('resReel').innerText = fmt(h.kalanReel) + symbol;
+            $('resTarget').innerText = fmt(hedefSatis) + symbol;
+            $('resTotalSatis').innerText = fmt(h.satisToplam) + symbol;
+            $('resSatilanMaliyet').innerText = fmt(h.satilanMaliyet) + symbol;
+            $('resCebtekiKar').innerText = fmt(cebtekiKar) + symbol;
+            $('perfOrtVade').innerText = `${h.ortVade} Gün (${(h.ortVade / 30).toFixed(1)} Ay)`;
+
+            const uyari = $('uyariSatis');
+            uyari.style.display = h.maliyetBos ? 'block' : 'none';
+            uyari.innerText = h.maliyetBos ? `⚠ ${h.maliyetBos} satışta maliyet boş: satış tutarı maliyet sayıldı, kâr 0 görünür.` : '';
+
+            const badgeEnf = $('badgeEnfFark'), badgeHedef = $('badgeHedefFark'), badge = $('statusBadge');
+            badgeEnf.innerHTML = ''; badgeHedef.innerHTML = ''; badge.innerHTML = '';
+            if (guncel > 0) {
+                if (h.kalanReel > 0) {
+                    const f = ((guncel - h.kalanReel) / h.kalanReel) * 100;
+                    badgeEnf.innerHTML = f >= 0 ? `<span class="status-badge badge-above">+%${f.toFixed(1)} Üstünde</span>` : `<span class="status-badge badge-below">%${f.toFixed(1)} Altında</span>`;
+                }
+                if (hedefSatis > 0) {
+                    const f = ((guncel - hedefSatis) / hedefSatis) * 100;
+                    badgeHedef.innerHTML = f >= 0 ? `<span class="status-badge badge-above">Hedef Aşıldı (+%${f.toFixed(1)})</span>` : `<span class="status-badge badge-below">Hedefe %${Math.abs(f).toFixed(1)} Kaldı</span>`;
+                    badge.innerHTML = f >= 0 ? `<span class="status-badge badge-above">HEDEFE ULAŞILDI (+%${f.toFixed(1)})</span>` : `<span class="status-badge badge-below">HEDEFİN ALTINDA (%${f.toFixed(1)})</span>`;
+                }
+            }
+
+            const flows = h.flows.slice();
+            if (guncel > 0) flows.push({ date: bugun, amount: guncel });
+            flows.sort((a, b) => a.date - b.date);
+            const xirrVal = calculateXIRR(flows);
+            $('perfXirr').innerText = `%${xirrVal.toFixed(1)}`;
+            $('perfXirr').style.color = xirrVal >= yillik * 100 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+            if (guncel > 0 && h.kalanReel > 0) {
+                const getiri = ((guncel - h.kalanReel) / h.kalanReel) * 100, fark = guncel - h.kalanReel;
+                $('perfNetReelGetiri').innerText = `%${getiri.toFixed(1)}`;
+                $('perfNetReelGetiri').style.color = getiri >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                $('perfReelGuc').innerText = (fark >= 0 ? '+' : '') + fmt(fark) + symbol;
+                $('perfReelGuc').style.color = fark >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+            } else {
+                $('perfNetReelGetiri').innerText = '%0.0';
+                $('perfReelGuc').innerText = '0,00';
+            }
+
+            if (curr === 'USD') $('resTargetTL').innerText = fmt(hedefSatis * usdKur) + ' TL';
+
+            cizPastaGrafik(usdKur, bugun);
+            cizCizgiGrafik(h.alimlar, h.gEnf, h.gKar);
+        }
+
+        function cizPastaGrafik(usdKur, bugun) {
+            const labels = [], data = [];
+            let toplamTL = 0, maliyetTL = 0, basabasTL = 0, hedefTL = 0;
             sepetler.forEach(s => {
-                let deger = parseFloat(s.guncelDeger) || 0;
-                const tlValue = s.currency === 'USD' ? deger * usdKur : deger;
-                toplamTL += tlValue;
-
-                let sYillik = (parseFloat(s.yillik) || 0) / 100;
-                let sHedefMarji = (parseFloat(s.hedef) || 0) / 100;
-                let sGunlukEnf = Math.pow(1 + sYillik, 1 / 365) - 1;
-                let sGunlukKar = Math.pow(1 + sHedefMarji, 1 / 365) - 1;
-
-                let sAlimlar = [];
-                if (s.dates && s.amts) {
-                    for (let i = 0; i < s.dates.length; i++) {
-                        let amt = parseFloat(s.amts[i]) || 0;
-                        let d = s.dates[i];
-                        if (amt > 0 && d) {
-                            sAlimlar.push({ date: new Date(d), origAmt: amt, kalanAmt: amt });
-                        }
-                    }
-                }
-
-                let sSatisToplam = 0;
-                if (s.sAmts) {
-                    for (let i = 0; i < s.sAmts.length; i++) {
-                        const sa = parseFloat(s.sAmts[i]) || 0;
-                        sSatisToplam += (parseFloat((s.sCosts || [])[i]) || sa);
-                    }
-                }
-
-                sAlimlar.sort((x, y) => x.date - y.date);
-                let dusenSatis = sSatisToplam;
-                for (let alim of sAlimlar) {
-                    if (dusenSatis <= 0) break;
-                    if (alim.kalanAmt <= dusenSatis) {
-                        dusenSatis -= alim.kalanAmt;
-                        alim.kalanAmt = 0;
-                    } else {
-                        alim.kalanAmt -= dusenSatis;
-                        dusenSatis = 0;
-                    }
-                }
-
-                sAlimlar.forEach(al => { toplamMaliyetTL += (s.currency === 'USD' ? al.kalanAmt * usdKur : al.kalanAmt); });
-                let sKalanReel = 0;
-                let sKalanHedef = 0;
-                for (let alim of sAlimlar) {
-                    if (alim.kalanAmt > 0) {
-                        let diffDays = Math.max(0, Math.floor((bugun - alim.date) / (1000 * 60 * 60 * 24)));
-                        let enfBicimi = Math.pow(1 + sGunlukEnf, diffDays);
-                        let karBicimi = Math.pow(1 + sGunlukKar, diffDays);
-                        
-                        let reelDeger = alim.kalanAmt * enfBicimi;
-                        let hedefDeger = alim.kalanAmt * enfBicimi * karBicimi;
-                        
-                        sKalanReel += (s.currency === 'USD' ? reelDeger * usdKur : reelDeger);
-                        sKalanHedef += (s.currency === 'USD' ? hedefDeger * usdKur : hedefDeger);
-                    }
-                }
-
-                genelToplamBasabasTL += sKalanReel;
-                genelToplamHedefTL += sKalanHedef;
+                const k = s.currency === 'USD' ? usdKur : 1;
+                const tl = sayi(s.guncelDeger) * k;
+                const h = sepetHesap(s, bugun);
+                toplamTL += tl; maliyetTL += h.kalanAnapara * k; basabasTL += h.kalanReel * k; hedefTL += h.kalanHedef * k;
+                labels.push(s.name); data.push(tl);
             });
-
-            sepetler.forEach(s => {
-                let deger = parseFloat(s.guncelDeger) || 0;
-                const tlValue = s.currency === 'USD' ? deger * usdKur : deger;
-                labels.push(s.name);
-                data.push(tlValue);
-            });
-
-            document.getElementById('toplamVarlikHeader').innerText = `Toplam: ${toplamTL.toLocaleString('tr-TR', {maximumFractionDigits: 0})} TL`;
-            
+            const f0 = x => x.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL';
+            document.getElementById('toplamVarlikHeader').innerText = 'Toplam: ' + f0(toplamTL);
+            document.getElementById('genelToplamMaliyet').innerText = f0(maliyetTL);
+            document.getElementById('genelToplamBasabas').innerText = f0(basabasTL);
+            document.getElementById('genelToplamHedef').innerText = f0(hedefTL);
             gecmisKaydet(toplamTL);
-            document.getElementById('genelToplamMaliyet').innerText = toplamMaliyetTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
-            document.getElementById('genelToplamBasabas').innerText = genelToplamBasabasTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
-            document.getElementById('genelToplamHedef').innerText = genelToplamHedefTL.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
 
-            const ctx = document.getElementById('pieChart').getContext('2d');
-            if (pieChartInstance) pieChartInstance.destroy();
-
-            const renkPaleti = [
-                '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', 
-                '#ec4899', '#84cc16', '#f97316', '#6366f1', '#14b8a6'
-            ];
-
-            pieChartInstance = new Chart(ctx, {
+            if (pieChartInstance) {
+                pieChartInstance.data.labels = labels;
+                pieChartInstance.data.datasets[0].data = data;
+                pieChartInstance.update('none');
+                return;
+            }
+            const renkPaleti = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1', '#14b8a6'];
+            pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
                 type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: renkPaleti,
-                        borderWidth: 0
-                    }]
-                },
+                data: { labels, datasets: [{ data, backgroundColor: renkPaleti, borderWidth: 0 }] },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } },
                         datalabels: {
-                            color: '#fff',
-                            font: { weight: 'bold', size: 9 },
+                            color: '#fff', font: { weight: 'bold', size: 9 },
                             formatter: (value, ctx) => {
-                                let sum = 0;
-                                let dataArr = ctx.chart.data.datasets[0].data;
-                                dataArr.map(data => { sum += data; });
+                                const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
                                 if (sum === 0) return '';
-                                let percentage = (value * 100 / sum).toFixed(1) + "%";
-                                let valStr = value.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + " TL";
-                                return [ctx.chart.data.labels[ctx.dataIndex], valStr, '(' + percentage + ')'];
+                                return [ctx.chart.data.labels[ctx.dataIndex], value.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL', '(' + (value * 100 / sum).toFixed(1) + '%)'];
                             }
                         }
                     }
@@ -1050,8 +915,14 @@
                 dataHedef.push(hedefPara);
             });
 
+            if (lineChartInstance) {
+                const L = lineChartInstance;
+                L.data.labels = labels;
+                L.data.datasets[0].data = dataAnapara; L.data.datasets[1].data = dataEnflasyon; L.data.datasets[2].data = dataHedef;
+                L.update('none');
+                return;
+            }
             const ctx = document.getElementById('lineChart').getContext('2d');
-            if (lineChartInstance) lineChartInstance.destroy();
 
             lineChartInstance = new Chart(ctx, {
                 type: 'line',

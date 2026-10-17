@@ -1,7 +1,7 @@
-const VERSION = 'portfoy-v1';
+const VERSION = 'portfoy-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const CDN = ['cdn.jsdelivr.net', 'www.gstatic.com'];
-const NEVER = ['firebaseio.com', 'googleapis.com', 'frankfurter.app', 'exchangerate-api.com']; // canlı veri: asla önbellekleme
+const NEVER = ['firebaseio.com', 'googleapis.com', 'frankfurter.app', 'frankfurter.dev', 'exchangerate-api.com']; // canlı veri: asla önbellekleme
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
