@@ -1,6 +1,6 @@
 # DURUM.md — Devir Notu (yeni sohbet için ilk okunacak dosya)
 
-Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v4`
+Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v5`
 
 ## Yeni sohbete ilk mesaj (kopyala-yapıştır)
 > Bu zip "yatirim" portföy PWA projem. Önce DURUM.md'yi oku, sonra index.html'e bak. Aynı kurallarla devam et.
@@ -30,7 +30,7 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v4`
 | `DURUM.md` | Bu dosya |
 
 ## Veri modeli (Firebase)
-- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), hedefPay (% hedef ağırlık), yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
+- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
 - `users/{uid}/history/{YYYY-MM-DD}` → o günün toplam portföy değeri (TL, yuvarlanmış)
 - Kurallar: kullanıcı yalnızca kendi `users/$uid` düğümünü okur/yazar (`database.rules.json`). Konsolda ayrıca eski `portfolios` yolu için sahibe özel bir blok duruyor; uygulama artık o yolu kullanmıyor, silinebilir.
 
@@ -46,7 +46,7 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v4`
 - 2026-10-17: Düzeltmeler: cihazlar arası canlı senkron (kendi yazımızın yankısı yok sayılır, bekleyen yerel değişiklik ezilmez); sadece kullanıcı değişikliğinde kayıt; eski `SAHIP_UID`/`portfolios` taşıma kodu silindi; kur yedeği ve saatlik yenileme; boş satış maliyeti uyarısı; yerel tarih ayrıştırma; tek hesap fonksiyonu; grafikler `update('none')` ile güncelleniyor; "Şifremi unuttum"; `alert` yerine ekran altı uyarı (toast).
 - 2026-10-17: Bu devir notu ve `database.rules.json` eklendi.
 
-- 2026-10-26: **Aylık Yatırım Dağılımı** kartı: her sepete `platform` ve `hedefPay` (%) alanı eklendi; kullanıcı aylık tutarı girince uygulama hedef paydan en geride kalan sepetlere parayı böler (yeni parayla dengeleme, satış gerektirmez). Platforma göre toplam özet de var. Tutar localStorage `aylikTutar`'da tutulur.
+- 2026-10-26: Aylık dağılım kartı denendi, kullanıcı istemedi, **kaldırıldı** (hedef pay alanı da gitti). Yerine **📉 En Çok Düşen Sepet** kartı: sepetleri güncel değer ÷ kalan maliyete göre sıralar (en düşük üstte), başabaşa göre % ve son alımdan beri gün sayısını gösterir. Her sepette `platform` alanı (Binance/QNB Yatırım/Midas/Diğer) kaldı. Kullanıcının asıl derdi: "son alımdan sonra hangisi en çok yüzde düştü" → şu an maliyete göre; gerçek 'son alım fiyatına göre' için alım satırına adet/fiyat girişi gerekir (açık iş 3).
 
 ## Entegrasyon kararı (Binance / QNB / Midas)
 - Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).
