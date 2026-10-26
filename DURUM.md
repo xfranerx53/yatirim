@@ -1,6 +1,6 @@
 # DURUM.md — Devir Notu (yeni sohbet için ilk okunacak dosya)
 
-Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v5`
+Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v6`
 
 ## Yeni sohbete ilk mesaj (kopyala-yapıştır)
 > Bu zip "yatirim" portföy PWA projem. Önce DURUM.md'yi oku, sonra index.html'e bak. Aynı kurallarla devam et.
@@ -14,7 +14,7 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v5`
 - Kısa ve net cevap; telefon ekranı için uzun liste yapma.
 
 ## Proje
-Çoklu sepetli (TL / USD) portföy takibi: enflasyon başabaş, hedef satış, realize kâr, XIRR, ağırlıklı vade, pasta/çizgi grafikler, günlük toplam değer geçmişi.
+Çoklu sepetli (TL / USD) portföy takibi: enflasyon başabaş, hedef satış, realize kâr, XIRR, ağırlıklı vade, pasta/çizgi grafikler.
 - Canlı adres: https://xfranerx53.github.io/yatirim/
 - Teknoloji: tek dosya `index.html` (vanilla JS), Chart.js 4.4.1 + datalabels (CDN), Firebase 10.12.0 compat (Auth + Realtime Database), GitHub Pages.
 - Giriş: Firebase e-posta/şifre. Kullanıcı adı yazılırsa `@yatirim.app` eklenir (sahte e-posta, şifre sıfırlama çalışmaz); gerçek e-posta yazılırsa "Şifremi unuttum" çalışır.
@@ -31,7 +31,7 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v5`
 
 ## Veri modeli (Firebase)
 - `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
-- `users/{uid}/history/{YYYY-MM-DD}` → o günün toplam portföy değeri (TL, yuvarlanmış)
+- `users/{uid}/history/{YYYY-MM-DD}` → eski günlük toplam değer kayıtları; uygulama artık yazmıyor/okumuyor (2026-10-26'da grafik kaldırıldı), veritabanında kalabilir, konsoldan silinebilir
 - Kurallar: kullanıcı yalnızca kendi `users/$uid` düğümünü okur/yazar (`database.rules.json`). Konsolda ayrıca eski `portfolios` yolu için sahibe özel bir blok duruyor; uygulama artık o yolu kullanmıyor, silinebilir.
 
 ## Hesaplama mantığı
@@ -47,6 +47,8 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v5`
 - 2026-10-17: Bu devir notu ve `database.rules.json` eklendi.
 
 - 2026-10-26: Aylık dağılım kartı denendi, kullanıcı istemedi, **kaldırıldı** (hedef pay alanı da gitti). Yerine **📉 En Çok Düşen Sepet** kartı: sepetleri güncel değer ÷ kalan maliyete göre sıralar (en düşük üstte), başabaşa göre % ve son alımdan beri gün sayısını gösterir. Her sepette `platform` alanı (Binance/QNB Yatırım/Midas/Diğer) kaldı. Kullanıcının asıl derdi: "son alımdan sonra hangisi en çok yüzde düştü" → şu an maliyete göre; gerçek 'son alım fiyatına göre' için alım satırına adet/fiyat girişi gerekir (açık iş 3).
+
+- 2026-10-26: Kullanıcı Hisse Pozisyonları/Binance/Worker denemelerinden önceki **v5 haline geri döndü** ("karışmaya başlamıştı"); bu sürümden devam. **📅 Portföy Değer Geçmişi (TL)** kartı ve ilgili kod (`gecmisKaydet`, `gecmisDinle`, `historyChart`) kaldırıldı. Not: Cloudflare Worker (`fiyat.xfranerxx.workers.dev`, Yahoo fiyat köprüsü) kurulu ve çalışıyor; ileride otomatik fiyat istenirse kullanılabilir ama şu an uygulamada kullanılmıyor.
 
 ## Entegrasyon kararı (Binance / QNB / Midas)
 - Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).

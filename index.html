@@ -204,11 +204,6 @@
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-title"><span>📅 PORTFÖY DEĞER GEÇMİŞİ (TL)</span></div>
-        <div class="line-chart-container"><canvas id="historyChart"></canvas></div>
-    </div>
-
     <!-- ALIM LİSTESİ -->
     <div class="card">
         <div class="card-title">
@@ -398,7 +393,7 @@
         auth.onAuthStateChanged(user => {
             if (user) {
                 document.getElementById('loginOverlay').style.display = 'none';
-                if (!dinlemeBasladi) { dinlemeBasladi = true; verileriDinle(); gecmisDinle(); }
+                if (!dinlemeBasladi) { dinlemeBasladi = true; verileriDinle(); }
             } else {
                 document.getElementById('loginOverlay').style.display = 'flex';
             }
@@ -517,39 +512,6 @@
             if (j === sonYazilan) return;
             sonYazilan = j;
             database.ref(dbYol()).set(sepetler).catch(e => { sonYazilan = null; bildir('Kaydedilemedi: ' + e.code); });
-        }
-
-                let historyChartInstance = null, sonGecmisDeger = null, gecmisZamanlayici = null;
-        function gecmisKaydet(toplamTL) {
-            if (!kayitHazir || !(toplamTL > 0) || !auth.currentUser) return;
-            const deger = Math.round(toplamTL);
-            if (deger === sonGecmisDeger) return;
-            clearTimeout(gecmisZamanlayici);
-            gecmisZamanlayici = setTimeout(() => {
-                const t = new Date();
-                const key = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
-                database.ref('users/' + auth.currentUser.uid + '/history/' + key).set(deger).then(() => { sonGecmisDeger = deger; }).catch(() => {});
-            }, 3000);
-        }
-        function gecmisDinle() {
-            database.ref('users/' + auth.currentUser.uid + '/history').on('value', snap => {
-                const v = snap.val() || {};
-                const keys = Object.keys(v).sort();
-                const el = document.getElementById('historyChart');
-                if (!el) return;
-                if (historyChartInstance) {
-                    historyChartInstance.data.labels = keys;
-                    historyChartInstance.data.datasets[0].data = keys.map(k => v[k]);
-                    historyChartInstance.update('none');
-                    return;
-                }
-                historyChartInstance = new Chart(el.getContext('2d'), {
-                    type: 'line',
-                    data: { labels: keys, datasets: [{ label: 'Toplam Değer (TL)', data: keys.map(k => v[k]), borderColor: '#8b5cf6', borderWidth: 2, pointRadius: 2, fill: false }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ca3af', font: { size: 9 } } }, datalabels: { display: false } },
-                        scales: { x: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2738' } }, y: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { color: '#1f2738' } } } }
-                });
-            }, () => {});
         }
 
         function csvIndir() {
@@ -894,7 +856,6 @@
             document.getElementById('genelToplamMaliyet').innerText = f0(maliyetTL);
             document.getElementById('genelToplamBasabas').innerText = f0(basabasTL);
             document.getElementById('genelToplamHedef').innerText = f0(hedefTL);
-            gecmisKaydet(toplamTL);
             dususSirala();
 
             if (pieChartInstance) {
