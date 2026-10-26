@@ -1,12 +1,13 @@
 # DURUM.md — Devir Notu (yeni sohbet için ilk okunacak dosya)
 
-Son güncelleme: 2026-10-17 · Uygulama sürümü: sw cache `portfoy-v3`
+Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v4`
 
 ## Yeni sohbete ilk mesaj (kopyala-yapıştır)
 > Bu zip "yatirim" portföy PWA projem. Önce DURUM.md'yi oku, sonra index.html'e bak. Aynı kurallarla devam et.
 
 ## Çalışma kuralları (Claude için, her sohbette geçerli)
 - Kullanıcı Türkçe yazar, her şeyi **telefondan** (Samsung S21 5G, Chrome) yapar.
+- Kullanıcı yeni sohbette zip'i atınca önce bu DURUM.md okunur; her değişiklikte **güncel DURUM.md ve index.html/sw.js tekrar verilir**.
 - Dosyalar **tek tek ve klasörsüz** verilir (zip değil, alt klasör yok); kullanıcı GitHub web'den "Add file > Upload files" ile yükler, aynı adlı dosyanın üzerine yazılır.
 - **Her değişiklikte:** (1) değişen dosyaları ver, (2) bu DURUM.md'yi güncelle (aşağıdaki "Yapılanlar"a ekle, "Açık işler"i düzelt, tarihi yaz) ve onu da ver, (3) `sw.js` içindeki `VERSION` numarasını 1 artır, (4) Firebase rules değiştiyse `database.rules.json` dosyasını da güncelle.
 - Repo **herkese açık**: şifre, kişisel veri, kullanıcı UID'si bu dosyalara yazılmaz.
@@ -29,7 +30,7 @@ Son güncelleme: 2026-10-17 · Uygulama sürümü: sw cache `portfoy-v3`
 | `DURUM.md` | Bu dosya |
 
 ## Veri modeli (Firebase)
-- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
+- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), hedefPay (% hedef ağırlık), yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
 - `users/{uid}/history/{YYYY-MM-DD}` → o günün toplam portföy değeri (TL, yuvarlanmış)
 - Kurallar: kullanıcı yalnızca kendi `users/$uid` düğümünü okur/yazar (`database.rules.json`). Konsolda ayrıca eski `portfolios` yolu için sahibe özel bir blok duruyor; uygulama artık o yolu kullanmıyor, silinebilir.
 
@@ -44,6 +45,12 @@ Son güncelleme: 2026-10-17 · Uygulama sürümü: sw cache `portfoy-v3`
 - 2026-10-17: PWA yapıldı (manifest, sw, ikonlar); telefona kurulum Chrome'un eski site kaydı yüzünden takıldı, Chrome "Tarama verilerini sil" ile çözüldü.
 - 2026-10-17: Düzeltmeler: cihazlar arası canlı senkron (kendi yazımızın yankısı yok sayılır, bekleyen yerel değişiklik ezilmez); sadece kullanıcı değişikliğinde kayıt; eski `SAHIP_UID`/`portfolios` taşıma kodu silindi; kur yedeği ve saatlik yenileme; boş satış maliyeti uyarısı; yerel tarih ayrıştırma; tek hesap fonksiyonu; grafikler `update('none')` ile güncelleniyor; "Şifremi unuttum"; `alert` yerine ekran altı uyarı (toast).
 - 2026-10-17: Bu devir notu ve `database.rules.json` eklendi.
+
+- 2026-10-26: **Aylık Yatırım Dağılımı** kartı: her sepete `platform` ve `hedefPay` (%) alanı eklendi; kullanıcı aylık tutarı girince uygulama hedef paydan en geride kalan sepetlere parayı böler (yeni parayla dengeleme, satış gerektirmez). Platforma göre toplam özet de var. Tutar localStorage `aylikTutar`'da tutulur.
+
+## Entegrasyon kararı (Binance / QNB / Midas)
+- Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).
+- Binance'in salt-okunur API'si var ama API anahtarını herkese açık repodaki istemci koduna koymak güvensiz; yapılacaksa ayrı bir sunucu/fonksiyon gerekir. Güvenli ve anahtarsız seçenek: Binance **herkese açık fiyat** uç noktasından (PAXG, BTC vb.) canlı fiyat çekip adet × fiyat ile güncel değeri otomatik yazmak (açık iş 3 + 5).
 
 ## Açık işler / fikirler (öncelik sırasıyla)
 1. Çevrimdışı/çevrimiçi göstergesi ve "yeni sürüm var" bildirimi

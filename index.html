@@ -130,6 +130,16 @@
         </div>
     </div>
 
+    <!-- AYLIK YATIRIM ÖNERİSİ -->
+    <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
+        <div class="card-title" style="color: var(--accent-green);"><span>💰 AYLIK YATIRIM DAĞILIMI</span></div>
+        <label>Bu ay yatıracağım tutar (TL)</label>
+        <input type="number" id="aylikTutar" placeholder="Örn: 20000" step="any" oninput="aylikOneri(true)">
+        <div id="aylikSonuc" style="margin-top:10px;font-size:12px;"></div>
+        <div id="platformOzet" style="margin-top:10px;padding-top:8px;border-top:1px dashed #2b364e;font-size:11px;color:var(--text-muted);"></div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Yatırım tavsiyesi değildir; yalnızca sepetlerine verdiğin hedef paylara göre dengeler.</div>
+    </div>
+
     <!-- SEPET BARI -->
     <div class="sepet-bar" id="sepetBar"></div>
 
@@ -162,6 +172,23 @@
                     <option value="TL">TL (₺)</option>
                     <option value="USD">USD ($)</option>
                 </select>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <div style="flex:2;">
+                <label>Platform</label>
+                <select id="sepetPlatform" onchange="platformGuncelle()">
+                    <option value="">Seçilmedi</option>
+                    <option>Binance</option>
+                    <option>QNB Yatırım</option>
+                    <option>Midas</option>
+                    <option>Diğer</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label>Hedef Pay (%)</label>
+                <input type="number" id="hedefPay" placeholder="Örn: 40" step="any" oninput="platformGuncelle()">
             </div>
         </div>
 
@@ -577,6 +604,8 @@
                 yillik: 50.49,
                 hedef: 15,
                 guncelDeger: '',
+                platform: '',
+                hedefPay: '',
                 dates: [],
                 amts: [],
                 sDates: [],
@@ -607,6 +636,8 @@
             document.getElementById('yillikEnf').value = sepet.yillik;
             document.getElementById('hedefKar').value = sepet.hedef;
             document.getElementById('guncelPiyasaDegeri').value = sepet.guncelDeger || '';
+            document.getElementById('sepetPlatform').value = sepet.platform || '';
+            document.getElementById('hedefPay').value = sepet.hedefPay || '';
 
             document.getElementById('parcalarListesi').innerHTML = '';
             document.getElementById('satislarListesi').innerHTML = '';
@@ -689,6 +720,47 @@
             document.getElementById('tlKarsiligiRow').style.display = curr === 'USD' ? 'flex' : 'none';
         }
 
+        function platformGuncelle() {
+            const sepet = sepetler.find(s => s.id === aktifSepetId);
+            if (!sepet) return;
+            sepet.platform = document.getElementById('sepetPlatform').value;
+            sepet.hedefPay = document.getElementById('hedefPay').value;
+            sepetleriKaydet();
+            aylikOneri(false);
+        }
+
+        // Aylık para: hedef paylara göre en geride kalan sepetlere dağıtır
+        function aylikOneri(kullanici) {
+            const inp = document.getElementById('aylikTutar'), out = document.getElementById('aylikSonuc'), pf = document.getElementById('platformOzet');
+            if (!inp || !out) return;
+            if (kullanici) { try { localStorage.setItem('aylikTutar', inp.value); } catch (e) {} }
+            else if (!inp.value) { try { inp.value = localStorage.getItem('aylikTutar') || ''; } catch (e) {} }
+            const M = sayi(inp.value), kur = kurDegeri();
+            const f0 = x => Math.round(x).toLocaleString('tr-TR') + ' TL';
+            const L = sepetler.map(s => ({ s, v: sayi(s.guncelDeger) * (s.currency === 'USD' ? kur : 1), w: sayi(s.hedefPay) }));
+            const T = L.reduce((a, x) => a + x.v, 0), W = L.reduce((a, x) => a + x.w, 0);
+
+            // platform özeti
+            const pl = {};
+            L.forEach(x => { const k = x.s.platform || 'Platform seçilmedi'; pl[k] = (pl[k] || 0) + x.v; });
+            pf.innerHTML = '<b>Platforma göre:</b> ' + Object.keys(pl).map(k => k + ' ' + f0(pl[k]) + (T > 0 ? ' (%' + (pl[k] / T * 100).toFixed(0) + ')' : '')).join(' · ');
+
+            if (!(M > 0)) { out.innerHTML = '<span style="color:var(--text-muted)">Tutarı gir, nereye ne kadar yatıracağını göstereyim.</span>'; return; }
+            if (!(W > 0)) { out.innerHTML = '<span style="color:var(--accent-orange)">Önce her sepetin "Hedef Pay (%)" alanını doldur (örn. 40 / 30 / 30).</span>'; return; }
+
+            const hedefToplam = T + M;
+            L.forEach(x => { x.hedefTL = hedefToplam * x.w / W; x.eksik = Math.max(0, x.hedefTL - x.v); });
+            const E = L.reduce((a, x) => a + x.eksik, 0);
+            L.forEach(x => {
+                x.pay = E >= M ? (E > 0 ? M * x.eksik / E : 0)
+                              : x.eksik + (M - E) * x.w / W;
+            });
+            const html = L.filter(x => x.pay >= 1).sort((a, b) => b.pay - a.pay).map(x =>
+                `<div class="summary-item"><span>${x.s.platform ? '<span style="color:var(--text-muted)">' + x.s.platform + ' · </span>' : ''}${x.s.name}</span><strong style="color:var(--accent-green)">${f0(x.pay)}</strong></div>` +
+                `<div style="font-size:10px;color:var(--text-muted);margin:-2px 0 6px;">şu an %${T > 0 ? (x.v / T * 100).toFixed(0) : 0} → hedef %${(x.w / W * 100).toFixed(0)}${x.s.currency === 'USD' ? ' · ≈ $' + (x.pay / kur).toFixed(0) : ''}</div>`).join('');
+            out.innerHTML = html || '<span style="color:var(--text-muted)">Dağıtılacak tutar yok.</span>';
+        }
+
         function calculateXIRR(cashflows) {
             if (cashflows.length < 2) return 0;
             let rate = 0.1;
@@ -769,6 +841,8 @@
             sepet.yillik = $('yillikEnf').value;
             sepet.hedef = $('hedefKar').value;
             sepet.guncelDeger = $('guncelPiyasaDegeri').value;
+            sepet.platform = $('sepetPlatform').value;
+            sepet.hedefPay = $('hedefPay').value;
             sepet.dates = vals('.p-date'); sepet.amts = vals('.p-amt');
             sepet.sDates = vals('.s-date'); sepet.sAmts = vals('.s-amt'); sepet.sCosts = vals('.s-cost');
             if (kaydet) sepetleriKaydet();
@@ -846,6 +920,7 @@
             document.getElementById('genelToplamBasabas').innerText = f0(basabasTL);
             document.getElementById('genelToplamHedef').innerText = f0(hedefTL);
             gecmisKaydet(toplamTL);
+            aylikOneri(false);
 
             if (pieChartInstance) {
                 pieChartInstance.data.labels = labels;
