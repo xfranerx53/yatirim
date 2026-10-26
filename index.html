@@ -140,7 +140,7 @@
     <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
         <div class="card-title" style="color: var(--accent-red);"><span>📉 EN ÇOK DÜŞEN SEPET</span></div>
         <div id="dususListe" style="font-size:12px;"></div>
-        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Referansı olan sepet: referanstan beri. Diğerleri: güncel ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
+        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Güncel değer ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
     </div>
 
     <!-- SEPET BARI -->
@@ -156,10 +156,7 @@
             <label id="lblGuncelPiyasa">Kalan Portföyün Anlık Değeri</label>
             <input type="number" id="guncelPiyasaDegeri" placeholder="Örn: 29449" step="any" oninput="otomatikHesapla()">
         </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-            <button class="btn-add-parca" onclick="referansYap()">📌 Şimdiyi referans yap</button>
-            <div id="refBilgi" style="font-size:10px;color:var(--text-muted);flex:1;"></div>
-        </div>
+
     </div>
 
     <!-- SEPET AYARLARI -->
@@ -595,30 +592,6 @@
             otomatikHesapla();
         }
 
-        // Referans: alım/satış sonrası değeri kaydet; değişim bundan sonra ölçülür
-        function referansGecerli(s, h) { return s.referans && s.referans.deger > 0 && Math.abs(h.kalanAnapara - s.referans.anapara) < 1; }
-        function tarihTR(d) { const p = String(d).split('-'); return p[2] + '.' + p[1] + '.' + p[0]; }
-        function referansYap() {
-            const s = sepetler.find(x => x.id === aktifSepetId);
-            if (!s) return;
-            otomatikHesapla(false);
-            const g = sayi(s.guncelDeger);
-            if (!(g > 0)) return bildir('Önce güncel değeri gir.');
-            const h = sepetHesap(s, bugunTarih()), t = new Date();
-            s.referans = { tarih: t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'), deger: g, anapara: Math.round(h.kalanAnapara * 100) / 100 };
-            sepetleriKaydet();
-            otomatikHesapla(false);
-            bildir('Referans kaydedildi: ' + g.toLocaleString('tr-TR'), true);
-        }
-        function referansGoster(s, h) {
-            const el = document.getElementById('refBilgi');
-            if (!el) return;
-            if (!s.referans) { el.textContent = 'Alım/satış yaptıktan sonra bas; değişim buna göre ölçülür.'; return; }
-            if (!referansGecerli(s, h)) { el.innerHTML = '<span style="color:var(--accent-orange)">⚠ Referanstan sonra alım/satış değişti, yeniden referans yap.</span>'; return; }
-            const g = sayi(s.guncelDeger), y = g > 0 ? (g / s.referans.deger - 1) * 100 : null;
-            el.textContent = 'Referans ' + tarihTR(s.referans.tarih) + ': ' + s.referans.deger.toLocaleString('tr-TR') + (y !== null ? ' → şimdi ' + (y >= 0 ? '+' : '') + y.toFixed(1).replace('.', ',') + '%' : '');
-        }
-
         function yeniSepetEkle() {
             const yeniId = 's_' + Date.now();
             const yeniSepet = {
@@ -760,7 +733,6 @@
                 const h = sepetHesap(s, bugun), g = sayi(s.guncelDeger);
                 if (!(g > 0) || !(h.kalanAnapara > 0)) return null;
                 const enf = h.kalanReel > 0 ? (g / h.kalanReel - 1) * 100 : 0;
-                if (referansGecerli(s, h)) return { s, mal: (g / s.referans.deger - 1) * 100, alt: 'referanstan beri (' + tarihTR(s.referans.tarih) + ') · başabaşa göre ' + pc(enf) };
                 const sonAlim = (s.dates || []).filter((d, i) => d && sayi((s.amts || [])[i]) > 0).sort().pop();
                 return { s, mal: (g / h.kalanAnapara - 1) * 100, alt: 'maliyete göre · başabaşa göre ' + pc(enf) + (sonAlim ? ' · son alım ' + Math.round((bugun - tarihParse(sonAlim)) / 86400000) + ' gün önce' : '') };
             }).filter(Boolean).sort((a, b) => a.mal - b.mal);
@@ -909,7 +881,6 @@
 
             cizPastaGrafik(usdKur, bugun);
             cizCizgiGrafik(h.alimlar, h.gEnf, h.gKar);
-            referansGoster(sepet, h);
             sepetBarCiz(false);
             const q = document.querySelector('[data-hizli="' + sepet.id + '"]');
             if (q && document.activeElement !== q) q.value = sepet.guncelDeger || '';
