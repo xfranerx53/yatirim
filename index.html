@@ -207,9 +207,9 @@
     <div class="card" style="border-color: rgba(6, 182, 212, 0.3);">
         <div class="card-title" style="color: var(--accent-cyan);">
             <span>🧺 HİSSE POZİSYONLARI</span>
-            <button class="btn-add-parca" onclick="pozEkle()">+ Hisse Ekle</button>
+            <span><button class="btn-add-parca" onclick="binanceFiyatGuncelle()">↻ Binance Fiyat</button> <button class="btn-add-parca" onclick="pozEkle()">+ Hisse Ekle</button></span>
         </div>
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">Sembol · Adet · Alış (ort.) · Güncel fiyat. Güncel fiyatı girince sepetin anlık değeri otomatik hesaplanır.</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">Sembol · Adet · Alış (ort.) · Güncel fiyat. Güncel fiyatı girince sepetin anlık değeri otomatik hesaplanır. Platform = Binance olan sepetlerde sembol coin kodudur (BTC, PAXG) ve ↻ ile fiyat (USDT) otomatik gelir.</div>
         <div id="pozListesi"></div>
     </div>
 
@@ -309,10 +309,10 @@
     </div>
 
     <script>
-        function bildir(m) {
+        function bildir(m, ok) {
             let t = document.getElementById('toast');
             if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
-            t.textContent = m; t.className = 'show';
+            t.textContent = m; t.className = 'show'; t.style.background = ok ? '#065f46' : '#7f1d1d';
             clearTimeout(t._z); t._z = setTimeout(() => { t.className = ''; }, 5000);
         }
         function sayi(x) { return parseFloat(x) || 0; }
@@ -765,6 +765,31 @@
             });
             if (var_) document.getElementById('guncelPiyasaDegeri').value = Math.round(toplam * 100) / 100;
             otomatikHesapla();
+        }
+
+        // Platform = Binance olan tüm sepetlerin pozisyon fiyatlarını Binance herkese açık API'sinden doldurur (anahtar gerekmez)
+        async function binanceFiyatGuncelle() {
+            const hedef = sepetler.filter(s => s.platform === 'Binance' && (s.pozlar || []).some(p => p.sym));
+            if (!hedef.length) return bildir('Önce sepetin Platform alanını Binance yap ve coin ekle (örn. PAXG).');
+            let map = null;
+            for (const u of ['https://data-api.binance.vision/api/v3/ticker/price', 'https://api.binance.com/api/v3/ticker/price']) {
+                try { const r = await fetch(u); if (!r.ok) continue; map = {}; (await r.json()).forEach(x => { map[x.symbol] = parseFloat(x.price); }); break; } catch (e) {}
+            }
+            if (!map) return bildir('Binance fiyatı alınamadı. İnternet/VPN kontrol et.');
+            let ok = 0; const yok = [];
+            hedef.forEach(s => {
+                let toplam = 0, var_ = false;
+                s.pozlar.forEach(p => {
+                    if (!p.sym) return;
+                    const k = p.sym.endsWith('USDT') ? p.sym : p.sym + 'USDT';
+                    if (map[k] > 0) { p.fiyat = String(map[k]); ok++; } else yok.push(p.sym);
+                    if (sayi(p.adet) > 0 && sayi(p.fiyat) > 0) { toplam += sayi(p.adet) * sayi(p.fiyat); var_ = true; }
+                });
+                if (var_) s.guncelDeger = String(Math.round(toplam * 100) / 100);
+            });
+            sepetleriKaydet();
+            sepetYukle(aktifSepetId);
+            bildir(ok + ' fiyat güncellendi' + (yok.length ? ' · bulunamadı: ' + yok.join(', ') : ''), !yok.length);
         }
 
         // En çok düşen: hisse pozisyonları (güncel ÷ alış) + pozisyonu olmayan sepetler (güncel ÷ kalan maliyet)

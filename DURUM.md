@@ -1,6 +1,6 @@
 # DURUM.md — Devir Notu (yeni sohbet için ilk okunacak dosya)
 
-Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v6`
+Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v7`
 
 ## Yeni sohbete ilk mesaj (kopyala-yapıştır)
 > Bu zip "yatirim" portföy PWA projem. Önce DURUM.md'yi oku, sonra index.html'e bak. Aynı kurallarla devam et.
@@ -48,6 +48,8 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v6`
 
 - 2026-10-26: Aylık dağılım kartı denendi, kullanıcı istemedi, **kaldırıldı** (hedef pay alanı da gitti). Yerine **📉 En Çok Düşen Sepet** kartı: sepetleri güncel değer ÷ kalan maliyete göre sıralar (en düşük üstte), başabaşa göre % ve son alımdan beri gün sayısını gösterir. Her sepette `platform` alanı (Binance/QNB Yatırım/Midas/Diğer) kaldı. Kullanıcının asıl derdi: "son alımdan sonra hangisi en çok yüzde düştü" → şu an maliyete göre; gerçek 'son alım fiyatına göre' için alım satırına adet/fiyat girişi gerekir (açık iş 3).
 - 2026-10-26: **Hisse Pozisyonları** kartı: sepet içine sembol/adet/alış(ort.)/güncel fiyat satırları. Güncel fiyat girilince sepetin `guncelDeger` alanı Σ adet×fiyat ile otomatik yazılır. Alım/satış satırları (sepet toplamı) aynen duruyor, ayrı. 'En Çok Düşen' kartı artık hisse bazında (güncel ÷ alış); pozisyonsuz sepetler eskisi gibi. Kullanıcı notu: Midas/BIST sepetinde 5 hisse var, tüm alım-satımlar aynı gün ama eşit değil (düşenden alıp yükselenden satıyor) → alış alanına ortalama maliyet yazılır. Güncel fiyat şimdilik elle; sıradaki iş: Binance/BIST/ABD fiyatını otomatik doldurmak (aracı servis gerekebilir).
+
+- 2026-10-26: **Binance otomatik fiyat**: Hisse Pozisyonları kartında "↻ Binance Fiyat" düğmesi. Platform = Binance olan tüm sepetlerde pozisyon sembolü coin kodu (BTC, PAXG; sonuna USDT eklenir) kabul edilir, fiyat `data-api.binance.vision/api/v3/ticker/price`'tan (anahtarsız, tüm semboller tek istek; yedek api.binance.com) çekilip `fiyat` alanına ve sepet `guncelDeger`ine yazılır. USDT≈USD kabul edilir (USD sepetler için). Düğmeyle manuel tetiklenir, otomatik değil. `bildir(m, ok)` yeşil toast desteği eklendi. Sıradaki: BIST/ABD hisse ve TEFAS fonu için aracı servis (Cloudflare Worker).
 
 ## Entegrasyon kararı (Binance / QNB / Midas)
 - Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).
