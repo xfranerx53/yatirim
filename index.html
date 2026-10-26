@@ -134,7 +134,7 @@
     <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
         <div class="card-title" style="color: var(--accent-red);"><span>📉 EN ÇOK DÜŞEN SEPET</span></div>
         <div id="dususListe" style="font-size:12px;"></div>
-        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Hisse: güncel ÷ alış fiyatı. Pozisyonsuz sepet: güncel ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
+        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Güncel değer ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
     </div>
 
     <!-- SEPET BARI -->
@@ -202,15 +202,6 @@
                 <input type="number" id="usdKur" value="48.47" step="0.0001" oninput="otomatikHesapla()">
             </div>
         </div>
-    </div>
-
-    <div class="card" style="border-color: rgba(6, 182, 212, 0.3);">
-        <div class="card-title" style="color: var(--accent-cyan);">
-            <span>🧺 HİSSE POZİSYONLARI</span>
-            <span><button class="btn-add-parca" onclick="binanceFiyatGuncelle()">↻ Binance</button> <button class="btn-add-parca" onclick="hisseFiyatGuncelle()">↻ Hisse</button> <button class="btn-add-parca" onclick="pozEkle()">+ Ekle</button></span>
-        </div>
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">Sembol · Adet · Alış (ort.) · Güncel fiyat. Güncel fiyatı girince sepetin anlık değeri otomatik hesaplanır. Binance sepetlerinde sembol coin kodudur (PAXG); ↻ Binance ile fiyat gelir. Diğer sepetlerde ↻ Hisse: TL sepette THYAO gibi BIST kodu, USD sepette NVDA gibi ABD kodu yaz.</div>
-        <div id="pozListesi"></div>
     </div>
 
     <div class="card">
@@ -309,10 +300,10 @@
     </div>
 
     <script>
-        function bildir(m, ok) {
+        function bildir(m) {
             let t = document.getElementById('toast');
             if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
-            t.textContent = m; t.className = 'show'; t.style.background = ok ? '#065f46' : '#7f1d1d';
+            t.textContent = m; t.className = 'show';
             clearTimeout(t._z); t._z = setTimeout(() => { t.className = ''; }, 5000);
         }
         function sayi(x) { return parseFloat(x) || 0; }
@@ -639,8 +630,6 @@
             document.getElementById('guncelPiyasaDegeri').value = sepet.guncelDeger || '';
             document.getElementById('sepetPlatform').value = sepet.platform || '';
 
-            document.getElementById('pozListesi').innerHTML = '';
-            (sepet.pozlar || []).forEach(pozEkle);
             document.getElementById('parcalarListesi').innerHTML = '';
             document.getElementById('satislarListesi').innerHTML = '';
 
@@ -730,125 +719,22 @@
             dususSirala();
         }
 
-        function pozEkle(p) {
-            p = (p && p.sym !== undefined) ? p : {};
-            const d = document.createElement('div'); d.className = 'poz-satir'; d.style.marginBottom = '8px';
-            d.innerHTML = '<div class="row" style="margin-bottom:2px;">' +
-                '<input type="text" class="poz-sym" placeholder="THYAO" autocapitalize="characters" style="flex:1.1" oninput="pozGuncelle()">' +
-                '<input type="number" class="poz-adet" placeholder="Adet" step="any" style="flex:1" oninput="pozGuncelle()">' +
-                '<input type="number" class="poz-alis" placeholder="Alış" step="any" style="flex:1.1" oninput="pozGuncelle()">' +
-                '<input type="number" class="poz-fiyat" placeholder="Güncel" step="any" style="flex:1.1" oninput="pozGuncelle()">' +
-                '<button class="btn-del" onclick="pozSil(this)">✕</button></div><div class="poz-bilgi" style="font-size:10px;color:var(--text-muted);"></div>';
-            d.querySelector('.poz-sym').value = p.sym || ''; d.querySelector('.poz-adet').value = p.adet || '';
-            d.querySelector('.poz-alis').value = p.alis || ''; d.querySelector('.poz-fiyat').value = p.fiyat || '';
-            document.getElementById('pozListesi').appendChild(d);
-            if (p.sym !== undefined) pozBilgi(d);
-        }
-        function pozSil(btn) { btn.closest('.poz-satir').remove(); pozGuncelle(); }
-        function pozBilgi(r) {
-            const q = c => sayi(r.querySelector(c).value), a = q('.poz-adet'), al = q('.poz-alis'), f = q('.poz-fiyat');
-            const b = r.querySelector('.poz-bilgi');
-            if (a > 0 && al > 0 && f > 0) {
-                const y = (f / al - 1) * 100;
-                b.innerHTML = 'Değer ' + (a * f).toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' · alışa göre <b style="color:' + (y >= 0 ? 'var(--accent-green)' : 'var(--accent-red)') + '">' + (y >= 0 ? '+' : '') + y.toFixed(1).replace('.', ',') + '%</b>';
-            } else b.textContent = (a > 0 && !(f > 0)) ? 'Güncel fiyat girilmedi, toplama katılmadı' : '';
-        }
-        function pozGuncelle() {
-            const sepet = sepetler.find(s => s.id === aktifSepetId);
-            if (!sepet) return;
-            let toplam = 0, var_ = false;
-            sepet.pozlar = [...document.querySelectorAll('.poz-satir')].map(r => {
-                const q = c => r.querySelector(c).value;
-                const p = { sym: q('.poz-sym').trim().toUpperCase(), adet: q('.poz-adet'), alis: q('.poz-alis'), fiyat: q('.poz-fiyat') };
-                if (sayi(p.adet) > 0 && sayi(p.fiyat) > 0) { toplam += sayi(p.adet) * sayi(p.fiyat); var_ = true; }
-                pozBilgi(r); return p;
-            });
-            if (var_) document.getElementById('guncelPiyasaDegeri').value = Math.round(toplam * 100) / 100;
-            otomatikHesapla();
-        }
-
-        // Platform = Binance olan tüm sepetlerin pozisyon fiyatlarını Binance herkese açık API'sinden doldurur (anahtar gerekmez)
-        async function binanceFiyatGuncelle() {
-            const hedef = sepetler.filter(s => s.platform === 'Binance' && (s.pozlar || []).some(p => p.sym));
-            if (!hedef.length) return bildir('Önce sepetin Platform alanını Binance yap ve coin ekle (örn. PAXG).');
-            let map = null;
-            for (const u of ['https://data-api.binance.vision/api/v3/ticker/price', 'https://api.binance.com/api/v3/ticker/price']) {
-                try { const r = await fetch(u); if (!r.ok) continue; map = {}; (await r.json()).forEach(x => { map[x.symbol] = parseFloat(x.price); }); break; } catch (e) {}
-            }
-            if (!map) return bildir('Binance fiyatı alınamadı. İnternet/VPN kontrol et.');
-            let ok = 0; const yok = [];
-            hedef.forEach(s => {
-                let toplam = 0, var_ = false;
-                s.pozlar.forEach(p => {
-                    if (!p.sym) return;
-                    const k = p.sym.endsWith('USDT') ? p.sym : p.sym + 'USDT';
-                    if (map[k] > 0) { p.fiyat = String(map[k]); ok++; } else yok.push(p.sym);
-                    if (sayi(p.adet) > 0 && sayi(p.fiyat) > 0) { toplam += sayi(p.adet) * sayi(p.fiyat); var_ = true; }
-                });
-                if (var_) s.guncelDeger = String(Math.round(toplam * 100) / 100);
-            });
-            sepetleriKaydet();
-            sepetYukle(aktifSepetId);
-            bildir(ok + ' fiyat güncellendi' + (yok.length ? ' · bulunamadı: ' + yok.join(', ') : ''), !yok.length);
-        }
-
-        // BIST / ABD hisseleri: Cloudflare Worker (worker.js) üzerinden Yahoo fiyatı. TL sepet → BIST (.IS eklenir), USD sepet → ABD kodu olduğu gibi.
-        async function hisseFiyatGuncelle() {
-            let u = ''; try { u = localStorage.getItem('workerUrl') || ''; } catch (e) {}
-            if (!u) {
-                u = (prompt('Cloudflare Worker adresini yapıştır (https://...workers.dev)') || '').trim();
-                if (!/^https:\/\//.test(u)) return bildir('Adres https:// ile başlamalı.');
-                try { localStorage.setItem('workerUrl', u); } catch (e) {}
-            }
-            const hedef = sepetler.filter(s => s.platform !== 'Binance' && (s.pozlar || []).some(p => p.sym));
-            if (!hedef.length) return bildir('Hisse eklenmiş (Binance olmayan) sepet yok.');
-            const kod = (s, p) => (p.sym.includes('.') || s.currency === 'USD') ? p.sym : p.sym + '.IS';
-            const liste = [...new Set(hedef.flatMap(s => s.pozlar.filter(p => p.sym).map(p => kod(s, p))))];
-            const map = {};
-            try {
-                for (let i = 0; i < liste.length; i += 25) {
-                    const r = await fetch(u.replace(/\/+$/, '') + '/?s=' + encodeURIComponent(liste.slice(i, i + 25).join(',')));
-                    if (!r.ok) throw new Error(r.status);
-                    Object.assign(map, await r.json());
-                }
-            } catch (e) {
-                try { localStorage.removeItem('workerUrl'); } catch (e2) {}
-                return bildir('Worker\'a ulaşılamadı; adres silindi, ↻ Hisse\'ye tekrar basıp doğru adresi yapıştır.');
-            }
-            let ok = 0; const yok = [];
-            hedef.forEach(s => {
-                let toplam = 0, var_ = false;
-                s.pozlar.forEach(p => {
-                    if (!p.sym) return;
-                    const f = map[kod(s, p)];
-                    if (f > 0) { p.fiyat = String(f); ok++; } else yok.push(p.sym);
-                    if (sayi(p.adet) > 0 && sayi(p.fiyat) > 0) { toplam += sayi(p.adet) * sayi(p.fiyat); var_ = true; }
-                });
-                if (var_) s.guncelDeger = String(Math.round(toplam * 100) / 100);
-            });
-            sepetleriKaydet();
-            sepetYukle(aktifSepetId);
-            bildir(ok + ' fiyat güncellendi' + (yok.length ? ' · bulunamadı: ' + yok.join(', ') : ''), !yok.length);
-        }
-
-        // En çok düşen: hisse pozisyonları (güncel ÷ alış) + pozisyonu olmayan sepetler (güncel ÷ kalan maliyet)
+        // Sepetleri güncel değer / kalan maliyete göre en çok düşenden başlayarak sırala
         function dususSirala() {
             const el = document.getElementById('dususListe');
             if (!el) return;
-            const bugun = bugunTarih(), L = [];
-            sepetler.forEach(s => {
-                const poz = (s.pozlar || []).filter(p => p.sym && sayi(p.adet) > 0 && sayi(p.alis) > 0 && sayi(p.fiyat) > 0);
-                if (poz.length) { poz.forEach(p => L.push({ ad: p.sym, alt: s.name + ' · alış ' + sayi(p.alis) + ' → ' + sayi(p.fiyat), mal: (sayi(p.fiyat) / sayi(p.alis) - 1) * 100 })); return; }
+            const bugun = bugunTarih();
+            const L = sepetler.map(s => {
                 const h = sepetHesap(s, bugun), g = sayi(s.guncelDeger);
-                if (!(g > 0) || !(h.kalanAnapara > 0)) return;
-                const enf = h.kalanReel > 0 ? (g / h.kalanReel - 1) * 100 : 0;
-                L.push({ ad: (s.platform ? s.platform + ' · ' : '') + s.name, alt: 'sepet · başabaşa göre ' + (enf >= 0 ? '+' : '') + enf.toFixed(1).replace('.', ',') + '%', mal: (g / h.kalanAnapara - 1) * 100 });
-            });
-            L.sort((a, b) => a.mal - b.mal);
-            if (!L.length) { el.innerHTML = '<span style="color:var(--text-muted)">Hisse pozisyonu veya sepet güncel değeri gir.</span>'; return; }
+                if (!(g > 0) || !(h.kalanAnapara > 0)) return null;
+                const sonAlim = (s.dates || []).filter((d, i) => d && sayi((s.amts || [])[i]) > 0).sort().pop();
+                return { s, mal: (g / h.kalanAnapara - 1) * 100, enf: h.kalanReel > 0 ? (g / h.kalanReel - 1) * 100 : 0,
+                         gun: sonAlim ? Math.round((bugun - tarihParse(sonAlim)) / 86400000) : null };
+            }).filter(Boolean).sort((a, b) => a.mal - b.mal);
+            if (!L.length) { el.innerHTML = '<span style="color:var(--text-muted)">Sepetlerin "güncel değer" alanını doldur.</span>'; return; }
             const pc = x => (x >= 0 ? '+' : '') + x.toFixed(1).replace('.', ',') + '%';
-            el.innerHTML = L.map((x, i) => `<div class="summary-item" style="${i === 0 ? 'font-weight:bold;' : ''}"><span>${i === 0 ? '🔻 ' : ''}${x.ad}</span><span style="color:${x.mal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${pc(x.mal)}</span></div>` +
-                `<div style="font-size:10px;color:var(--text-muted);margin:-2px 0 6px;">${x.alt}</div>`).join('');
+            el.innerHTML = L.map((x, i) => `<div class="summary-item" style="${i === 0 ? 'font-weight:bold;' : ''}"><span>${i === 0 ? '🔻 ' : ''}${x.s.platform ? x.s.platform + ' · ' : ''}${x.s.name}</span><span style="color:${x.mal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${pc(x.mal)}</span></div>` +
+                `<div style="font-size:10px;color:var(--text-muted);margin:-2px 0 6px;">başabaşa göre ${pc(x.enf)}${x.gun !== null ? ' · son alım ' + x.gun + ' gün önce' : ''}</div>`).join('');
         }
 
         function calculateXIRR(cashflows) {

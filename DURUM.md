@@ -1,6 +1,6 @@
 # DURUM.md — Devir Notu (yeni sohbet için ilk okunacak dosya)
 
-Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v8`
+Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v5`
 
 ## Yeni sohbete ilk mesaj (kopyala-yapıştır)
 > Bu zip "yatirim" portföy PWA projem. Önce DURUM.md'yi oku, sonra index.html'e bak. Aynı kurallarla devam et.
@@ -27,11 +27,10 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v8`
 | `sw.js` | Servis çalışanı: kabuk network-first, CDN stale-while-revalidate, Firebase/kur istekleri önbelleğe alınmaz |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`, `favicon-32.png` | İkonlar (koyu zemin, mavi/yeşil/turuncu barlar + yükselen çizgi) |
 | `database.rules.json` | Firebase Realtime Database kuralları (konsola yapıştırılır) |
-| `worker.js` | Cloudflare Worker kodu (Yahoo fiyat köprüsü); repoda yalnızca yedek, çalışması için Cloudflare'e yapıştırılır |
 | `DURUM.md` | Bu dosya |
 
 ## Veri modeli (Firebase)
-- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', pozlar[{sym,adet,alis,fiyat}] (hisse pozisyonları), platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
+- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
 - `users/{uid}/history/{YYYY-MM-DD}` → o günün toplam portföy değeri (TL, yuvarlanmış)
 - Kurallar: kullanıcı yalnızca kendi `users/$uid` düğümünü okur/yazar (`database.rules.json`). Konsolda ayrıca eski `portfolios` yolu için sahibe özel bir blok duruyor; uygulama artık o yolu kullanmıyor, silinebilir.
 
@@ -48,11 +47,6 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v8`
 - 2026-10-17: Bu devir notu ve `database.rules.json` eklendi.
 
 - 2026-10-26: Aylık dağılım kartı denendi, kullanıcı istemedi, **kaldırıldı** (hedef pay alanı da gitti). Yerine **📉 En Çok Düşen Sepet** kartı: sepetleri güncel değer ÷ kalan maliyete göre sıralar (en düşük üstte), başabaşa göre % ve son alımdan beri gün sayısını gösterir. Her sepette `platform` alanı (Binance/QNB Yatırım/Midas/Diğer) kaldı. Kullanıcının asıl derdi: "son alımdan sonra hangisi en çok yüzde düştü" → şu an maliyete göre; gerçek 'son alım fiyatına göre' için alım satırına adet/fiyat girişi gerekir (açık iş 3).
-- 2026-10-26: **Hisse Pozisyonları** kartı: sepet içine sembol/adet/alış(ort.)/güncel fiyat satırları. Güncel fiyat girilince sepetin `guncelDeger` alanı Σ adet×fiyat ile otomatik yazılır. Alım/satış satırları (sepet toplamı) aynen duruyor, ayrı. 'En Çok Düşen' kartı artık hisse bazında (güncel ÷ alış); pozisyonsuz sepetler eskisi gibi. Kullanıcı notu: Midas/BIST sepetinde 5 hisse var, tüm alım-satımlar aynı gün ama eşit değil (düşenden alıp yükselenden satıyor) → alış alanına ortalama maliyet yazılır. Güncel fiyat şimdilik elle; sıradaki iş: Binance/BIST/ABD fiyatını otomatik doldurmak (aracı servis gerekebilir).
-
-- 2026-10-26: **Binance otomatik fiyat**: Hisse Pozisyonları kartında "↻ Binance Fiyat" düğmesi. Platform = Binance olan tüm sepetlerde pozisyon sembolü coin kodu (BTC, PAXG; sonuna USDT eklenir) kabul edilir, fiyat `data-api.binance.vision/api/v3/ticker/price`'tan (anahtarsız, tüm semboller tek istek; yedek api.binance.com) çekilip `fiyat` alanına ve sepet `guncelDeger`ine yazılır. USDT≈USD kabul edilir (USD sepetler için). Düğmeyle manuel tetiklenir, otomatik değil. `bildir(m, ok)` yeşil toast desteği eklendi. Sıradaki: BIST/ABD hisse ve TEFAS fonu için aracı servis (Cloudflare Worker).
-
-- 2026-10-26: **BIST/ABD hisse fiyatı**: "↻ Hisse" düğmesi. Binance dışı sepetlerin pozisyonları için Cloudflare Worker (`worker.js`, kullanıcı Cloudflare'e kendisi yapıştırır) üzerinden Yahoo `v8/finance/chart` fiyatı (BIST ~15 dk gecikmeli). TL sepet → sembole `.IS` eklenir (THYAO), USD sepet → ABD kodu olduğu gibi (NVDA). Worker adresi localStorage `workerUrl`'de (repoda yok); ulaşılamazsa silinir, tekrar sorulur. Worker yalnızca `https://xfranerx53.github.io` kökenine CORS izni verir, en çok 30 sembol/istek. Not: Yahoo uç noktası resmi değil, değişirse bozulabilir. Henüz gerçek ortamda test edilmedi. TEFAS fonları yapılmadı (bot korumalı, kırılgan) → açık iş.
 
 ## Entegrasyon kararı (Binance / QNB / Midas)
 - Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).
