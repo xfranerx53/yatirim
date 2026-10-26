@@ -1,6 +1,6 @@
 # DURUM.md — Devir Notu (yeni sohbet için ilk okunacak dosya)
 
-Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v6`
+Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v7`
 
 ## Yeni sohbete ilk mesaj (kopyala-yapıştır)
 > Bu zip "yatirim" portföy PWA projem. Önce DURUM.md'yi oku, sonra index.html'e bak. Aynı kurallarla devam et.
@@ -30,7 +30,7 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v6`
 | `DURUM.md` | Bu dosya |
 
 ## Veri modeli (Firebase)
-- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
+- `users/{uid}/portfolios` → dizi; her sepet: `{id, name, currency:'TL'|'USD', platform ('Binance'|'QNB Yatırım'|'Midas'|'Diğer'|''), referans {tarih, deger, anapara}, yillik, hedef, guncelDeger, dates[], amts[], sDates[], sAmts[], sCosts[]}`
 - `users/{uid}/history/{YYYY-MM-DD}` → eski günlük toplam değer kayıtları; uygulama artık yazmıyor/okumuyor (2026-10-26'da grafik kaldırıldı), veritabanında kalabilir, konsoldan silinebilir
 - Kurallar: kullanıcı yalnızca kendi `users/$uid` düğümünü okur/yazar (`database.rules.json`). Konsolda ayrıca eski `portfolios` yolu için sahibe özel bir blok duruyor; uygulama artık o yolu kullanmıyor, silinebilir.
 
@@ -49,6 +49,8 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v6`
 - 2026-10-26: Aylık dağılım kartı denendi, kullanıcı istemedi, **kaldırıldı** (hedef pay alanı da gitti). Yerine **📉 En Çok Düşen Sepet** kartı: sepetleri güncel değer ÷ kalan maliyete göre sıralar (en düşük üstte), başabaşa göre % ve son alımdan beri gün sayısını gösterir. Her sepette `platform` alanı (Binance/QNB Yatırım/Midas/Diğer) kaldı. Kullanıcının asıl derdi: "son alımdan sonra hangisi en çok yüzde düştü" → şu an maliyete göre; gerçek 'son alım fiyatına göre' için alım satırına adet/fiyat girişi gerekir (açık iş 3).
 
 - 2026-10-26: Kullanıcı Hisse Pozisyonları/Binance/Worker denemelerinden önceki **v5 haline geri döndü** ("karışmaya başlamıştı"); bu sürümden devam. **📅 Portföy Değer Geçmişi (TL)** kartı ve ilgili kod (`gecmisKaydet`, `gecmisDinle`, `historyChart`) kaldırıldı. Not: Cloudflare Worker (`fiyat.xfranerxx.workers.dev`, Yahoo fiyat köprüsü) kurulu ve çalışıyor; ileride otomatik fiyat istenirse kullanılabilir ama şu an uygulamada kullanılmıyor.
+
+- 2026-10-26: Üç özellik: (1) **⚡ Hızlı Güncelleme** kartı: tüm sepetlerin güncel değeri tek yerden girilir (`hizliCiz`/`hizliGuncelle`, ana kutuyla senkron). (2) **Sepet sekmelerinde durum noktası**: 🟢 güncel ≥ hedef satış, 🟡 ≥ başabaş, 🔴 başabaşın altı; oturumda bir kez "🎯 Hedefe ulaşan" bildirimi. (3) **📌 Şimdiyi referans yap**: sepete `referans {tarih, deger, anapara}` kaydeder; En Çok Düşen kartı referanslı sepette "referanstan beri %" gösterir. Referanstan sonra kalan anapara değişirse (yeni alım/satış) referans geçersiz sayılır, uyarı çıkar ve kart maliyete göre hesaba döner. Kullanım: alım yaptıktan sonra güncel değeri girip düğmeye bas.
 
 ## Entegrasyon kararı (Binance / QNB / Midas)
 - Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).

@@ -130,15 +130,22 @@
         </div>
     </div>
 
+    <!-- HIZLI GÜNCELLEME -->
+    <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
+        <div class="card-title" style="color: var(--accent-green);"><span>⚡ HIZLI GÜNCELLEME</span></div>
+        <div id="hizliListe"></div>
+    </div>
+
     <!-- EN ÇOK DÜŞEN SEPET -->
     <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
         <div class="card-title" style="color: var(--accent-red);"><span>📉 EN ÇOK DÜŞEN SEPET</span></div>
         <div id="dususListe" style="font-size:12px;"></div>
-        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Güncel değer ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
+        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Referansı olan sepet: referanstan beri. Diğerleri: güncel ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
     </div>
 
     <!-- SEPET BARI -->
     <div class="sepet-bar" id="sepetBar"></div>
+    <div style="font-size:10px;color:var(--text-muted);margin:-6px 0 10px;">🟢 hedefte · 🟡 başabaşın üstünde · 🔴 başabaşın altında</div>
 
     <!-- GÜNCEL PİYASA DEĞERİ KARTI -->
     <div class="card" style="border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.05);">
@@ -148,6 +155,10 @@
         <div>
             <label id="lblGuncelPiyasa">Kalan Portföyün Anlık Değeri</label>
             <input type="number" id="guncelPiyasaDegeri" placeholder="Örn: 29449" step="any" oninput="otomatikHesapla()">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+            <button class="btn-add-parca" onclick="referansYap()">📌 Şimdiyi referans yap</button>
+            <div id="refBilgi" style="font-size:10px;color:var(--text-muted);flex:1;"></div>
         </div>
     </div>
 
@@ -527,14 +538,24 @@
             a.click();
         }
 
-        function sepetBarCiz() {
+        let hedefUyarildi = false;
+        function sepetDurum(s, bugun) {
+            const h = sepetHesap(s, bugun), g = sayi(s.guncelDeger);
+            if (!(g > 0) || !(h.kalanReel > 0)) return '';
+            return g >= h.kalanHedef ? 'hedef' : (g >= h.kalanReel ? 'ust' : 'alt');
+        }
+        function sepetBarCiz(hizliYenile = true) {
             const bar = document.getElementById('sepetBar');
+            const kaydir = bar.scrollLeft, bugun = bugunTarih(), hedefte = [];
             bar.innerHTML = '';
+            const nokta = { hedef: '🟢 ', ust: '🟡 ', alt: '🔴 ', '': '' };
 
             sepetler.forEach(s => {
+                const d = sepetDurum(s, bugun);
+                if (d === 'hedef') hedefte.push(s.name);
                 const btn = document.createElement('button');
                 btn.className = `sepet-tab ${s.id === aktifSepetId ? 'active' : ''}`;
-                btn.innerText = (s.currency === 'USD' ? '💲 ' : '₺ ') + s.name;
+                btn.innerText = nokta[d] + (s.currency === 'USD' ? '💲 ' : '₺ ') + s.name;
                 btn.onclick = () => {
                     aktifSepetId = s.id;
                     sepetBarCiz();
@@ -548,6 +569,54 @@
             addBtn.innerText = '+ Yeni Sepet';
             addBtn.onclick = yeniSepetEkle;
             bar.appendChild(addBtn);
+            bar.scrollLeft = kaydir;
+            if (hizliYenile) hizliCiz();
+            if (!hedefUyarildi && kayitHazir && hedefte.length) { hedefUyarildi = true; bildir('🎯 Hedefe ulaşan: ' + hedefte.join(', '), true); }
+        }
+
+        function hizliCiz() {
+            const el = document.getElementById('hizliListe');
+            if (!el) return;
+            el.innerHTML = '';
+            sepetler.forEach(s => {
+                const r = document.createElement('div'); r.className = 'row';
+                const l = document.createElement('span'); l.style.cssText = 'flex:1.4;font-size:12px;'; l.textContent = (s.currency === 'USD' ? '$ ' : '₺ ') + s.name;
+                const i = document.createElement('input'); i.type = 'number'; i.step = 'any'; i.style.flex = '1'; i.placeholder = 'Güncel değer';
+                i.value = s.guncelDeger || ''; i.dataset.hizli = s.id;
+                i.oninput = () => hizliGuncelle(s.id, i.value);
+                r.append(l, i); el.appendChild(r);
+            });
+        }
+        function hizliGuncelle(id, v) {
+            const s = sepetler.find(x => x.id === id);
+            if (!s) return;
+            s.guncelDeger = v;
+            if (id === aktifSepetId) document.getElementById('guncelPiyasaDegeri').value = v;
+            otomatikHesapla();
+        }
+
+        // Referans: alım/satış sonrası değeri kaydet; değişim bundan sonra ölçülür
+        function referansGecerli(s, h) { return s.referans && s.referans.deger > 0 && Math.abs(h.kalanAnapara - s.referans.anapara) < 1; }
+        function tarihTR(d) { const p = String(d).split('-'); return p[2] + '.' + p[1] + '.' + p[0]; }
+        function referansYap() {
+            const s = sepetler.find(x => x.id === aktifSepetId);
+            if (!s) return;
+            otomatikHesapla(false);
+            const g = sayi(s.guncelDeger);
+            if (!(g > 0)) return bildir('Önce güncel değeri gir.');
+            const h = sepetHesap(s, bugunTarih()), t = new Date();
+            s.referans = { tarih: t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'), deger: g, anapara: Math.round(h.kalanAnapara * 100) / 100 };
+            sepetleriKaydet();
+            otomatikHesapla(false);
+            bildir('Referans kaydedildi: ' + g.toLocaleString('tr-TR'), true);
+        }
+        function referansGoster(s, h) {
+            const el = document.getElementById('refBilgi');
+            if (!el) return;
+            if (!s.referans) { el.textContent = 'Alım/satış yaptıktan sonra bas; değişim buna göre ölçülür.'; return; }
+            if (!referansGecerli(s, h)) { el.innerHTML = '<span style="color:var(--accent-orange)">⚠ Referanstan sonra alım/satış değişti, yeniden referans yap.</span>'; return; }
+            const g = sayi(s.guncelDeger), y = g > 0 ? (g / s.referans.deger - 1) * 100 : null;
+            el.textContent = 'Referans ' + tarihTR(s.referans.tarih) + ': ' + s.referans.deger.toLocaleString('tr-TR') + (y !== null ? ' → şimdi ' + (y >= 0 ? '+' : '') + y.toFixed(1).replace('.', ',') + '%' : '');
         }
 
         function yeniSepetEkle() {
@@ -686,17 +755,18 @@
             const el = document.getElementById('dususListe');
             if (!el) return;
             const bugun = bugunTarih();
+            const pc = x => (x >= 0 ? '+' : '') + x.toFixed(1).replace('.', ',') + '%';
             const L = sepetler.map(s => {
                 const h = sepetHesap(s, bugun), g = sayi(s.guncelDeger);
                 if (!(g > 0) || !(h.kalanAnapara > 0)) return null;
+                const enf = h.kalanReel > 0 ? (g / h.kalanReel - 1) * 100 : 0;
+                if (referansGecerli(s, h)) return { s, mal: (g / s.referans.deger - 1) * 100, alt: 'referanstan beri (' + tarihTR(s.referans.tarih) + ') · başabaşa göre ' + pc(enf) };
                 const sonAlim = (s.dates || []).filter((d, i) => d && sayi((s.amts || [])[i]) > 0).sort().pop();
-                return { s, mal: (g / h.kalanAnapara - 1) * 100, enf: h.kalanReel > 0 ? (g / h.kalanReel - 1) * 100 : 0,
-                         gun: sonAlim ? Math.round((bugun - tarihParse(sonAlim)) / 86400000) : null };
+                return { s, mal: (g / h.kalanAnapara - 1) * 100, alt: 'maliyete göre · başabaşa göre ' + pc(enf) + (sonAlim ? ' · son alım ' + Math.round((bugun - tarihParse(sonAlim)) / 86400000) + ' gün önce' : '') };
             }).filter(Boolean).sort((a, b) => a.mal - b.mal);
             if (!L.length) { el.innerHTML = '<span style="color:var(--text-muted)">Sepetlerin "güncel değer" alanını doldur.</span>'; return; }
-            const pc = x => (x >= 0 ? '+' : '') + x.toFixed(1).replace('.', ',') + '%';
             el.innerHTML = L.map((x, i) => `<div class="summary-item" style="${i === 0 ? 'font-weight:bold;' : ''}"><span>${i === 0 ? '🔻 ' : ''}${x.s.platform ? x.s.platform + ' · ' : ''}${x.s.name}</span><span style="color:${x.mal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${pc(x.mal)}</span></div>` +
-                `<div style="font-size:10px;color:var(--text-muted);margin:-2px 0 6px;">başabaşa göre ${pc(x.enf)}${x.gun !== null ? ' · son alım ' + x.gun + ' gün önce' : ''}</div>`).join('');
+                `<div style="font-size:10px;color:var(--text-muted);margin:-2px 0 6px;">${x.alt}</div>`).join('');
         }
 
         function calculateXIRR(cashflows) {
@@ -839,6 +909,10 @@
 
             cizPastaGrafik(usdKur, bugun);
             cizCizgiGrafik(h.alimlar, h.gEnf, h.gKar);
+            referansGoster(sepet, h);
+            sepetBarCiz(false);
+            const q = document.querySelector('[data-hizli="' + sepet.id + '"]');
+            if (q && document.activeElement !== q) q.value = sepet.guncelDeger || '';
         }
 
         function cizPastaGrafik(usdKur, bugun) {
