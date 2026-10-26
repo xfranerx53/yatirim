@@ -207,9 +207,9 @@
     <div class="card" style="border-color: rgba(6, 182, 212, 0.3);">
         <div class="card-title" style="color: var(--accent-cyan);">
             <span>🧺 HİSSE POZİSYONLARI</span>
-            <span><button class="btn-add-parca" onclick="binanceFiyatGuncelle()">↻ Binance Fiyat</button> <button class="btn-add-parca" onclick="pozEkle()">+ Hisse Ekle</button></span>
+            <span><button class="btn-add-parca" onclick="binanceFiyatGuncelle()">↻ Binance</button> <button class="btn-add-parca" onclick="hisseFiyatGuncelle()">↻ Hisse</button> <button class="btn-add-parca" onclick="pozEkle()">+ Ekle</button></span>
         </div>
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">Sembol · Adet · Alış (ort.) · Güncel fiyat. Güncel fiyatı girince sepetin anlık değeri otomatik hesaplanır. Platform = Binance olan sepetlerde sembol coin kodudur (BTC, PAXG) ve ↻ ile fiyat (USDT) otomatik gelir.</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">Sembol · Adet · Alış (ort.) · Güncel fiyat. Güncel fiyatı girince sepetin anlık değeri otomatik hesaplanır. Binance sepetlerinde sembol coin kodudur (PAXG); ↻ Binance ile fiyat gelir. Diğer sepetlerde ↻ Hisse: TL sepette THYAO gibi BIST kodu, USD sepette NVDA gibi ABD kodu yaz.</div>
         <div id="pozListesi"></div>
     </div>
 
@@ -783,6 +783,45 @@
                     if (!p.sym) return;
                     const k = p.sym.endsWith('USDT') ? p.sym : p.sym + 'USDT';
                     if (map[k] > 0) { p.fiyat = String(map[k]); ok++; } else yok.push(p.sym);
+                    if (sayi(p.adet) > 0 && sayi(p.fiyat) > 0) { toplam += sayi(p.adet) * sayi(p.fiyat); var_ = true; }
+                });
+                if (var_) s.guncelDeger = String(Math.round(toplam * 100) / 100);
+            });
+            sepetleriKaydet();
+            sepetYukle(aktifSepetId);
+            bildir(ok + ' fiyat güncellendi' + (yok.length ? ' · bulunamadı: ' + yok.join(', ') : ''), !yok.length);
+        }
+
+        // BIST / ABD hisseleri: Cloudflare Worker (worker.js) üzerinden Yahoo fiyatı. TL sepet → BIST (.IS eklenir), USD sepet → ABD kodu olduğu gibi.
+        async function hisseFiyatGuncelle() {
+            let u = ''; try { u = localStorage.getItem('workerUrl') || ''; } catch (e) {}
+            if (!u) {
+                u = (prompt('Cloudflare Worker adresini yapıştır (https://...workers.dev)') || '').trim();
+                if (!/^https:\/\//.test(u)) return bildir('Adres https:// ile başlamalı.');
+                try { localStorage.setItem('workerUrl', u); } catch (e) {}
+            }
+            const hedef = sepetler.filter(s => s.platform !== 'Binance' && (s.pozlar || []).some(p => p.sym));
+            if (!hedef.length) return bildir('Hisse eklenmiş (Binance olmayan) sepet yok.');
+            const kod = (s, p) => (p.sym.includes('.') || s.currency === 'USD') ? p.sym : p.sym + '.IS';
+            const liste = [...new Set(hedef.flatMap(s => s.pozlar.filter(p => p.sym).map(p => kod(s, p))))];
+            const map = {};
+            try {
+                for (let i = 0; i < liste.length; i += 25) {
+                    const r = await fetch(u.replace(/\/+$/, '') + '/?s=' + encodeURIComponent(liste.slice(i, i + 25).join(',')));
+                    if (!r.ok) throw new Error(r.status);
+                    Object.assign(map, await r.json());
+                }
+            } catch (e) {
+                try { localStorage.removeItem('workerUrl'); } catch (e2) {}
+                return bildir('Worker\'a ulaşılamadı; adres silindi, ↻ Hisse\'ye tekrar basıp doğru adresi yapıştır.');
+            }
+            let ok = 0; const yok = [];
+            hedef.forEach(s => {
+                let toplam = 0, var_ = false;
+                s.pozlar.forEach(p => {
+                    if (!p.sym) return;
+                    const f = map[kod(s, p)];
+                    if (f > 0) { p.fiyat = String(f); ok++; } else yok.push(p.sym);
                     if (sayi(p.adet) > 0 && sayi(p.fiyat) > 0) { toplam += sayi(p.adet) * sayi(p.fiyat); var_ = true; }
                 });
                 if (var_) s.guncelDeger = String(Math.round(toplam * 100) / 100);

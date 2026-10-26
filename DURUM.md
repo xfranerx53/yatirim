@@ -1,6 +1,6 @@
 # DURUM.md — Devir Notu (yeni sohbet için ilk okunacak dosya)
 
-Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v7`
+Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v8`
 
 ## Yeni sohbete ilk mesaj (kopyala-yapıştır)
 > Bu zip "yatirim" portföy PWA projem. Önce DURUM.md'yi oku, sonra index.html'e bak. Aynı kurallarla devam et.
@@ -27,6 +27,7 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v7`
 | `sw.js` | Servis çalışanı: kabuk network-first, CDN stale-while-revalidate, Firebase/kur istekleri önbelleğe alınmaz |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`, `favicon-32.png` | İkonlar (koyu zemin, mavi/yeşil/turuncu barlar + yükselen çizgi) |
 | `database.rules.json` | Firebase Realtime Database kuralları (konsola yapıştırılır) |
+| `worker.js` | Cloudflare Worker kodu (Yahoo fiyat köprüsü); repoda yalnızca yedek, çalışması için Cloudflare'e yapıştırılır |
 | `DURUM.md` | Bu dosya |
 
 ## Veri modeli (Firebase)
@@ -50,6 +51,8 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v7`
 - 2026-10-26: **Hisse Pozisyonları** kartı: sepet içine sembol/adet/alış(ort.)/güncel fiyat satırları. Güncel fiyat girilince sepetin `guncelDeger` alanı Σ adet×fiyat ile otomatik yazılır. Alım/satış satırları (sepet toplamı) aynen duruyor, ayrı. 'En Çok Düşen' kartı artık hisse bazında (güncel ÷ alış); pozisyonsuz sepetler eskisi gibi. Kullanıcı notu: Midas/BIST sepetinde 5 hisse var, tüm alım-satımlar aynı gün ama eşit değil (düşenden alıp yükselenden satıyor) → alış alanına ortalama maliyet yazılır. Güncel fiyat şimdilik elle; sıradaki iş: Binance/BIST/ABD fiyatını otomatik doldurmak (aracı servis gerekebilir).
 
 - 2026-10-26: **Binance otomatik fiyat**: Hisse Pozisyonları kartında "↻ Binance Fiyat" düğmesi. Platform = Binance olan tüm sepetlerde pozisyon sembolü coin kodu (BTC, PAXG; sonuna USDT eklenir) kabul edilir, fiyat `data-api.binance.vision/api/v3/ticker/price`'tan (anahtarsız, tüm semboller tek istek; yedek api.binance.com) çekilip `fiyat` alanına ve sepet `guncelDeger`ine yazılır. USDT≈USD kabul edilir (USD sepetler için). Düğmeyle manuel tetiklenir, otomatik değil. `bildir(m, ok)` yeşil toast desteği eklendi. Sıradaki: BIST/ABD hisse ve TEFAS fonu için aracı servis (Cloudflare Worker).
+
+- 2026-10-26: **BIST/ABD hisse fiyatı**: "↻ Hisse" düğmesi. Binance dışı sepetlerin pozisyonları için Cloudflare Worker (`worker.js`, kullanıcı Cloudflare'e kendisi yapıştırır) üzerinden Yahoo `v8/finance/chart` fiyatı (BIST ~15 dk gecikmeli). TL sepet → sembole `.IS` eklenir (THYAO), USD sepet → ABD kodu olduğu gibi (NVDA). Worker adresi localStorage `workerUrl`'de (repoda yok); ulaşılamazsa silinir, tekrar sorulur. Worker yalnızca `https://xfranerx53.github.io` kökenine CORS izni verir, en çok 30 sembol/istek. Not: Yahoo uç noktası resmi değil, değişirse bozulabilir. Henüz gerçek ortamda test edilmedi. TEFAS fonları yapılmadı (bot korumalı, kırılgan) → açık iş.
 
 ## Entegrasyon kararı (Binance / QNB / Midas)
 - Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).
