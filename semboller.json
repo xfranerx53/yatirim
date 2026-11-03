@@ -1,0 +1,15 @@
+{
+  "aciklama": "Analiz edilecek varlıklar. ad = ekranda görünen, yahoo = veri sembolü, tip = BIST/ABD/kripto, para = TL/USD",
+  "liste": [
+    {"ad":"THYAO","yahoo":"THYAO.IS","tip":"BIST","para":"TL"},
+    {"ad":"TUPRS","yahoo":"TUPRS.IS","tip":"BIST","para":"TL"},
+    {"ad":"FROTO","yahoo":"FROTO.IS","tip":"BIST","para":"TL"},
+    {"ad":"BIMAS","yahoo":"BIMAS.IS","tip":"BIST","para":"TL"},
+    {"ad":"KCHOL","yahoo":"KCHOL.IS","tip":"BIST","para":"TL"},
+    {"ad":"ORZAX","yahoo":"ORZAX.IS","tip":"BIST","para":"TL"},
+    {"ad":"PAXG (altın)","yahoo":"PAXG-USD","tip":"kripto","para":"USD"},
+    {"ad":"UUUU","yahoo":"UUUU","tip":"ABD","para":"USD"},
+    {"ad":"GOOGLB (Alphabet)","yahoo":"GOOGL","tip":"ABD","para":"USD"},
+    {"ad":"NVDAB (Nvidia)","yahoo":"NVDA","tip":"ABD","para":"USD"}
+  ]
+}
