@@ -143,6 +143,17 @@
         <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Güncel değer ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
     </div>
 
+    <!-- ANALİZ — AL EĞİLİMİ PUANI -->
+    <div class="card" style="border-color: rgba(59, 130, 246, 0.4);">
+        <div class="card-title" style="color: var(--accent-blue);">
+            <span>🎯 ANALİZ — AL EĞİLİMİ PUANI</span>
+            <span id="azGuncel" style="font-size:10px;color:var(--text-muted);font-weight:normal;">yükleniyor…</span>
+        </div>
+        <div id="azSira" style="font-size:12px;">Yükleniyor…</div>
+        <div id="azToplu" style="margin-top:12px;border-top:1px solid var(--card-border);padding-top:10px;"></div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);line-height:1.5;">10 teknik gösterge (RSI, Stokastik, Williams %R, CCI, MACD, Momentum, EMA20, MA50, MA200, Bollinger) toplanıp 0–100 puana çevrilir. 50 ortası. <b>Puan geleceği tahmin etmez, yalnızca fikir içindir; yatırım tavsiyesi değildir.</b></div>
+    </div>
+
     <!-- SEPET BARI -->
     <div class="sepet-bar" id="sepetBar"></div>
     <div style="font-size:10px;color:var(--text-muted);margin:-6px 0 10px;">🟢 hedefte · 🟡 başabaşın üstünde · 🔴 başabaşın altında</div>
@@ -1007,6 +1018,60 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
         }
+    </script>
+
+    <script>
+    (function(){
+        const RENK = {AL:['rgba(16,185,129,.15)','#10b981'], SAT:['rgba(239,68,68,.15)','#ef4444'], 'NÖTR':['rgba(245,158,11,.15)','#f59e0b']};
+        function puanRenk(p){ return p>=55 ? '#10b981' : p>=41 ? '#f59e0b' : '#ef4444'; }
+        function yuzde(x){ return (x>0?'+':'') + x.toFixed(1) + '%'; }
+        function btSatir(bt){
+            if(!bt) return '';
+            const p = k => bt[k] && bt[k].n ? `<b style="color:${k==='yuksek'?'#10b981':k==='dusuk'?'#ef4444':'#f59e0b'}">${yuzde(bt[k].ort)}</b>` : '—';
+            return `<div style="margin-top:6px;font-size:10px;color:var(--text-muted);line-height:1.6;">Geçmiş testi — bu varlıkta puan <b style="color:#10b981">yüksekken</b> alsaydın 20 gün sonra ort. ${p('yuksek')}, ortayken ${p('orta')}, düşükken ${p('dusuk')}.</div>`;
+        }
+        function detay(v){
+            const g = v.gostergeler.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--card-border);"><span style="color:var(--text-muted);">${r[0]}</span><span style="display:flex;gap:6px;align-items:center;"><span style="color:var(--text-muted);font-size:10px;min-width:30px;text-align:right;">${r[1]}</span><span style="background:${RENK[r[2]][0]};color:${RENK[r[2]][1]};font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;min-width:30px;text-align:center;">${r[2]}</span></span></div>`).join('');
+            return `<div style="padding:6px 0 2px;">${g}${btSatir(v.backtest)}</div>`;
+        }
+        function render(d){
+            document.getElementById('azGuncel').textContent = d.guncelleme;
+            const kap = document.getElementById('azSira');
+            kap.innerHTML = d.varliklar.map((v,i)=>{
+                if(v.yetersiz) return `<div style="padding:7px 0;color:var(--text-muted);border-top:${i?'1px solid var(--card-border)':'none'};">${v.ad} <span style="font-size:10px;">— yeterli geçmiş veri yok</span></div>`;
+                const bar = `<div style="flex:1;height:6px;border-radius:3px;background:var(--input-bg);overflow:hidden;margin:0 8px;"><div style="width:${v.puan}%;height:100%;background:${puanRenk(v.puan)};"></div></div>`;
+                return `<div class="azRow" data-i="${i}" style="cursor:pointer;border-top:${i?'1px solid var(--card-border)':'none'};">
+                    <div style="display:flex;align-items:center;padding:8px 0;">
+                        <span style="min-width:120px;font-weight:600;">${v.ad}</span>${bar}
+                        <span style="font-weight:bold;color:${puanRenk(v.puan)};min-width:26px;text-align:right;">${v.puan}</span>
+                        <span style="color:var(--text-muted);margin-left:6px;">▾</span>
+                    </div>
+                    <div class="azDetay" style="display:none;">${detay(v)}</div>
+                </div>`;
+            }).join('');
+            kap.querySelectorAll('.azRow').forEach(r=>{
+                r.addEventListener('click', ()=>{
+                    const dd = r.querySelector('.azDetay');
+                    dd.style.display = dd.style.display==='none' ? 'block' : 'none';
+                });
+            });
+            const t = d.toplu_backtest, kutu = (ad,k,renk)=>{
+                const b = t[k]||{n:0};
+                return `<div style="flex:1;background:var(--input-bg);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);">${ad}</div>
+                    <div style="font-size:16px;font-weight:bold;color:${renk};">${b.n?yuzde(b.ort):'—'}</div>
+                    <div style="font-size:9px;color:var(--text-muted);">${b.n?('%'+b.pozitif_oran+' artı · '+b.n+' örnek'):''}</div>
+                </div>`;
+            };
+            document.getElementById('azToplu').innerHTML =
+                `<div style="font-size:11px;font-weight:600;margin-bottom:6px;">📊 GEÇMİŞ TESTİ — tüm portföy (puan → 20 gün sonraki ort. getiri)</div>
+                 <div style="display:flex;gap:6px;">${kutu('Yüksek puanda','yuksek','#10b981')}${kutu('Orta puanda','orta','#f59e0b')}${kutu('Düşük puanda','dusuk','#ef4444')}</div>
+                 <div style="font-size:9px;color:var(--text-muted);margin-top:5px;">Son 3 yılın her günü için hesaplandı. Yüksek puanlı günlerde alım tarihsel olarak daha iyi sonuç vermiş — ama geçmiş, geleceğin garantisi değildir.</div>`;
+        }
+        fetch('./skor.json?t=' + Date.now(), {cache:'no-store'})
+            .then(r=>r.json()).then(render)
+            .catch(()=>{ document.getElementById('azSira').innerHTML='<span style="color:var(--text-muted)">Puan verisi henüz yok. Her hafta içi otomatik güncellenir.</span>'; });
+    })();
     </script>
 </body>
 </html>
