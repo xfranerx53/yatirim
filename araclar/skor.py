@@ -4,10 +4,16 @@ def ff(url):
     req=urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"})
     return json.loads(urllib.request.urlopen(req, timeout=40).read())
 
-def ohlc(sym, rng="3y", iv="1d"):
+def ohlc(sym, rng, iv):
     d=ff(f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range={rng}&interval={iv}")["chart"]["result"][0]
     q=d["indicators"]["quote"][0]
     return [(h,l,c) for h,l,c in zip(q["high"],q["low"],q["close"]) if None not in (h,l,c)]
+
+def dort_saat(rows):
+    out=[]
+    for i in range(0,len(rows)-len(rows)%4,4):
+        g=rows[i:i+4]; out.append((max(x[0] for x in g), min(x[1] for x in g), g[-1][2]))
+    return out
 
 def ema_list(a,n):
     if len(a)<n: return [None]*len(a)
@@ -15,98 +21,132 @@ def ema_list(a,n):
     for p in a[n:]: e=p*k+e*(1-k); r.append(e)
     return r
 
-def skor_hesapla(H,L,C,i):
-    # i = değerlendirilecek gün indeksi (dahil). En az 200 geçmiş ister.
-    if i<200: return None,None
-    c=C[:i+1]; h=H[:i+1]; l=L[:i+1]; fiyat=c[-1]; g=[]
-    n=14; gain=loss=0
-    for j in range(-n,0):
-        d=c[j]-c[j-1]; gain+=max(d,0); loss+=max(-d,0)
-    rs=100 if loss==0 else 100-100/(1+(gain/n)/(loss/n))
+def skor_series(H,L,C):
+    # Hesaplanabildiği kadar göstergeyle puan üretir (4 saatlikte bazıları olmayabilir)
+    n=len(C)
+    if n<30: return None,None
+    fiyat=C[-1]; g=[]
+    gain=loss=0
+    for j in range(-14,0):
+        d=C[j]-C[j-1]; gain+=max(d,0); loss+=max(-d,0)
+    rs=100 if loss==0 else 100-100/(1+(gain/14)/(loss/14))
     g.append(["RSI (14)", round(rs), "AL" if rs<35 else "SAT" if rs>65 else "NÖTR"])
-    hh=max(h[-14:]); ll=min(l[-14:])
+    hh=max(H[-14:]); ll=min(L[-14:])
     k=100*(fiyat-ll)/(hh-ll) if hh!=ll else 50
     g.append(["Stokastik %K", round(k), "AL" if k<20 else "SAT" if k>80 else "NÖTR"])
     wr=-100*(hh-fiyat)/(hh-ll) if hh!=ll else -50
     g.append(["Williams %R", round(wr), "AL" if wr<-80 else "SAT" if wr>-20 else "NÖTR"])
-    tp=[(h[x]+l[x]+c[x])/3 for x in range(len(c))]; m=sum(tp[-20:])/20
+    tp=[(H[x]+L[x]+C[x])/3 for x in range(n)]; m=sum(tp[-20:])/20
     md=sum(abs(x-m) for x in tp[-20:])/20; cci=(tp[-1]-m)/(0.015*md) if md else 0
     g.append(["CCI (20)", round(cci), "AL" if cci<-100 else "SAT" if cci>100 else "NÖTR"])
-    e12=ema_list(c,12); e26=ema_list(c,26)
+    e12=ema_list(C,12); e26=ema_list(C,26)
     ml=[a-b for a,b in zip(e12,e26) if a is not None and b is not None]
-    sig=ema_list(ml,9); macd=ml[-1]; sg=sig[-1] if sig[-1] is not None else ml[-1]
-    g.append(["MACD", "+" if macd>sg else "−", "AL" if macd>sg else "SAT"])
-    roc=100*(fiyat-c[-11])/c[-11]
-    g.append(["Momentum (10g)", round(roc,1), "AL" if roc>0 else "SAT"])
-    e20=ema_list(c,20)[-1]
+    if len(ml)>=9:
+        sig=ema_list(ml,9); macd=ml[-1]; sg=sig[-1]
+        g.append(["MACD", "+" if macd>sg else "−", "AL" if macd>sg else "SAT"])
+    roc=100*(fiyat-C[-11])/C[-11]
+    g.append(["Momentum (10)", round(roc,1), "AL" if roc>0 else "SAT"])
+    e20=ema_list(C,20)[-1]
     g.append(["Fiyat vs EMA20", round(fiyat-e20,1), "AL" if fiyat>e20 else "SAT"])
-    s50=sum(c[-50:])/50
-    g.append(["Fiyat vs MA50", round(fiyat-s50,1), "AL" if fiyat>s50 else "SAT"])
-    s200=sum(c[-200:])/200
-    g.append(["Fiyat vs MA200", round(fiyat-s200,1), "AL" if fiyat>s200 else "SAT"])
-    m20=sum(c[-20:])/20; sd=math.sqrt(sum((x-m20)**2 for x in c[-20:])/20)
+    if n>=50:
+        s50=sum(C[-50:])/50
+        g.append(["Fiyat vs MA50", round(fiyat-s50,1), "AL" if fiyat>s50 else "SAT"])
+    if n>=200:
+        s200=sum(C[-200:])/200
+        g.append(["Fiyat vs MA200", round(fiyat-s200,1), "AL" if fiyat>s200 else "SAT"])
+    m20=sum(C[-20:])/20; sd=math.sqrt(sum((x-m20)**2 for x in C[-20:])/20)
     pb=(fiyat-(m20-2*sd))/(4*sd) if sd else 0.5
     g.append(["Bollinger %B", round(pb,2), "AL" if pb<0.2 else "SAT" if pb>0.8 else "NÖTR"])
     al=sum(1 for x in g if x[2]=="AL"); sat=sum(1 for x in g if x[2]=="SAT")
-    puan=max(0,min(100,50+(al-sat)*5))
+    puan=max(0,min(100,round(50+(al-sat)*5)))
     return puan, g
 
-def kova(p):
-    return "yuksek" if p>=55 else "dusuk" if p<=40 else "orta"
+def kova(p): return "yuksek" if p>=55 else "dusuk" if p<=40 else "orta"
 
-def backtest(H,L,C, ileri=20):
-    # Her gün skoru hesapla, 'ileri' gün sonraki getiriyi kaydet, kovaya göre ortala
-    sonuc={"yuksek":[], "orta":[], "dusuk":[]}
-    for i in range(200, len(C)-ileri):
-        p,_=skor_hesapla(H,L,C,i)
-        if p is None: continue
-        getiri=100*(C[i+ileri]-C[i])/C[i]
-        sonuc[kova(p)].append(getiri)
-    ozet={}
-    for k,v in sonuc.items():
-        if v:
-            v2=sorted(v); n=len(v2)
-            ozet[k]={"n":n,"ort":round(sum(v)/n,1),"medyan":round(v2[n//2],1),
-                     "pozitif_oran":round(100*sum(1 for x in v if x>0)/n)}
-        else:
-            ozet[k]={"n":0}
-    return ozet
+def backtest(H,L,C, ileriler=(10,20,60)):
+    cache={}
+    for i in range(200,len(C)):
+        p,_=skor_series(H[:i+1],L[:i+1],C[:i+1]); cache[i]=p
+    cikti={}
+    for ileri in ileriler:
+        kov={"yuksek":[],"orta":[],"dusuk":[]}
+        for i in range(200,len(C)-ileri):
+            if cache[i] is None: continue
+            kov[kova(cache[i])].append(100*(C[i+ileri]-C[i])/C[i])
+        oz={}
+        for key,v in kov.items():
+            if v:
+                v2=sorted(v); n=len(v2)
+                oz[key]={"n":n,"ort":round(sum(v)/n,1),"medyan":round(v2[n//2],1),"poz":round(100*sum(1 for x in v if x>0)/n)}
+            else: oz[key]={"n":0}
+        cikti[str(ileri)]=oz
+    return cikti, cache
+
+def haberler(sym):
+    try:
+        d=ff(f"https://query1.finance.yahoo.com/v1/finance/search?q={sym}&newsCount=4&quotesCount=0")
+        out=[]
+        for h in d.get("news",[])[:4]:
+            out.append({"baslik":h.get("title"),"link":h.get("link"),
+                        "kaynak":h.get("publisher"),"zaman":h.get("providerPublishTime")})
+        return out
+    except Exception: return []
+
+def piyasa():
+    m={}
+    for ad,sym in [("BIST100","XU100.IS"),("Dolar/TL","USDTRY=X"),("Bitcoin","BTC-USD"),("Ons Altın","GC=F")]:
+        try:
+            r=ohlc(sym,"5d","1d")
+            son=r[-1][2]; onc=r[-2][2]
+            m[ad]={"deger":round(son,2),"degisim":round(100*(son-onc)/onc,2)}
+        except Exception: m[ad]={}
+    return m
 
 liste=json.load(open("semboller.json"))["liste"]
 res={"guncelleme":datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M")+" UTC",
-     "ileri_gun":20, "varliklar":[]}
-toplu={"yuksek":[], "orta":[], "dusuk":[]}
+     "ileriler":[10,20,60],"piyasa":piyasa(),"varliklar":[]}
+toplu={"10":{},"20":{},"60":{}}
+for ileri in toplu: toplu[ileri]={"yuksek":[],"orta":[],"dusuk":[]}
+
 for v in liste:
     try:
-        rows=ohlc(v["yahoo"])
+        rows=ohlc(v["yahoo"],"3y","1d")
         H=[r[0] for r in rows]; L=[r[1] for r in rows]; C=[r[2] for r in rows]
-        puan,g=skor_hesapla(H,L,C,len(C)-1)
+        puan,g=skor_series(H,L,C)
         if puan is None:
-            res["varliklar"].append({"ad":v["ad"],"tip":v["tip"],"para":v["para"],"fiyat":round(C[-1],2),"yetersiz":True})
-            continue
-        bt=backtest(H,L,C)
-        # toplu havuz için ham getirileri de topla
-        for i in range(200,len(C)-20):
-            p,_=skor_hesapla(H,L,C,i)
-            if p is not None: toplu[kova(p)].append(100*(C[i+20]-C[i])/C[i])
+            res["varliklar"].append({"ad":v["ad"],"tip":v["tip"],"para":v["para"],"fiyat":round(C[-1],2),"yetersiz":True}); continue
+        gun_deg=round(100*(C[-1]-C[-2])/C[-2],2) if len(C)>1 else 0
+        bt,cache=backtest(H,L,C)
+        for ileri in toplu:
+            il=int(ileri)
+            for i in range(200,len(C)-il):
+                if cache[i] is not None: toplu[ileri][kova(cache[i])].append(100*(C[i+il]-C[i])/C[i])
+        # 4 saatlik kısa vade
+        try:
+            s=ohlc(v["yahoo"],"60d","60m"); d4=dort_saat(s)
+            p4,g4=skor_series([x[0] for x in d4],[x[1] for x in d4],[x[2] for x in d4])
+        except Exception: p4,g4=None,None
         res["varliklar"].append({"ad":v["ad"],"tip":v["tip"],"para":v["para"],
-            "fiyat":round(C[-1],2),"puan":puan,"gostergeler":g,
+            "fiyat":round(C[-1],2),"gun_degisim":gun_deg,"puan":puan,"gostergeler":g,
             "al":sum(1 for x in g if x[2]=="AL"),"sat":sum(1 for x in g if x[2]=="SAT"),
-            "backtest":bt})
+            "puan4s":p4,"gostergeler4s":g4,"backtest":bt,"haberler":haberler(v["yahoo"])})
     except Exception as e:
         res["varliklar"].append({"ad":v["ad"],"hata":str(e)[:120]})
-# toplu backtest
+
 tb={}
-for k,v in toplu.items():
-    if v:
-        v2=sorted(v); n=len(v2)
-        tb[k]={"n":n,"ort":round(sum(v)/n,1),"medyan":round(v2[n//2],1),"pozitif_oran":round(100*sum(1 for x in v if x>0)/n)}
-    else: tb[k]={"n":0}
+for ileri,kov in toplu.items():
+    oz={}
+    for key,val in kov.items():
+        if val:
+            v2=sorted(val); n=len(v2)
+            oz[key]={"n":n,"ort":round(sum(val)/n,1),"medyan":round(v2[n//2],1),"poz":round(100*sum(1 for x in val if x>0)/n)}
+        else: oz[key]={"n":0}
+    tb[ileri]=oz
 res["toplu_backtest"]=tb
 res["varliklar"].sort(key=lambda x:x.get("puan",-1), reverse=True)
 json.dump(res, open("skor.json","w"), ensure_ascii=False, separators=(",",":"))
-print("Varlık sayısı:", len(res["varliklar"]))
-print("Toplu backtest (20 gün ileri getiri):", json.dumps(tb, ensure_ascii=False))
+print("Piyasa:", res["piyasa"])
 for v in res["varliklar"]:
-    if "puan" in v: print(f'  {v["ad"]:>18}  puan={v["puan"]:>3}  (al {v["al"]} / sat {v["sat"]})')
-    else: print(f'  {v["ad"]:>18}  HATA: {v.get("hata")}')
+    if "puan" in v: print(f'  {v["ad"]:>18} g{v["puan"]:>3} 4s={v.get("puan4s")} haber={len(v.get("haberler",[]))}')
+    else: print(f'  {v["ad"]:>18} {v.get("hata",v.get("yetersiz"))}')
+print("TOPLU 20g:", tb["20"])
