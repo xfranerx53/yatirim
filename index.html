@@ -342,9 +342,11 @@
     <div class="sayfa" id="sp-maas" style="display:none">
     <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
         <div class="card-title" style="color: var(--accent-green);"><span>💰 ZARARDAKİLERE BÖLÜŞTÜR (hisse bazında)</span></div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Girdiğin tutarı <b>yalnızca zararda olan hisselere</b>, daha çok düşene daha çok gelecek şekilde böler. Güncel fiyat otomatik; ortalama maliyeti aşağıda düzenleyebilirsin (kaydedilir).</div>
-        <label>Bölüştürülecek tutar</label>
-        <input type="number" id="maasTutar" placeholder="Örn: 10000" step="any" inputmode="decimal">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Girdiğin tutarı <b>yalnızca zararda olan hisselere</b>, daha çok düşene daha çok gelecek şekilde böler. <b>TL varlıklar TL tutarından, dolar varlıklar dolar tutarından</b> ayrı bölünür. Güncel fiyat otomatik; maliyeti düzenleyebilirsin.</div>
+        <div style="display:flex;gap:8px;">
+            <div style="flex:1;"><label>Eklenecek ₺ (Midas/QNB)</label><input type="number" id="maasTutarTL" placeholder="Örn: 10000" step="any" inputmode="decimal"></div>
+            <div style="flex:1;"><label>Eklenecek $ (Binance)</label><input type="number" id="maasTutarUSD" placeholder="Örn: 300" step="any" inputmode="decimal"></div>
+        </div>
         <div style="display:flex;gap:6px;margin-top:8px;">
             <button class="sepet-tab active" id="bolG1" style="flex:1;text-align:center;" onclick="bolGuc(1)">Orantılı</button>
             <button class="sepet-tab" id="bolG2" style="flex:1;text-align:center;" onclick="bolGuc(2)">Daha keskin</button>
@@ -854,35 +856,49 @@
         function bolustur(){
             var el = document.getElementById('bolustRes'); if(!el) return;
             var S = window.SKOR; if(!S){ el.innerHTML = '<span style="color:var(--text-muted)">Fiyat verisi yükleniyor…</span>'; return; }
-            var tutar = parseFloat((document.getElementById('maasTutar').value||'').replace(',','.'))||0;
+            var potlar = {
+                TL: parseFloat((document.getElementById('maasTutarTL').value||'').replace(',','.'))||0,
+                USD: parseFloat((document.getElementById('maasTutarUSD').value||'').replace(',','.'))||0
+            };
             var M = window.MALIYET || {};
             var rows = S.varliklar.filter(function(v){ return v.fiyat!=null && !v.yetersiz; }).map(function(v){
                 var mal = (M[v.ad]!=null && M[v.ad]!=='') ? Number(M[v.ad]) : (VARSAYILAN_MALIYET[v.ad]||0);
                 var dy = mal>0 ? (1 - v.fiyat/mal)*100 : -999;
-                return { ad:v.ad, fiyat:v.fiyat, cur:v.para, mal:mal, dy:dy };
+                return { ad:v.ad, fiyat:v.fiyat, cur:(v.para==='USD'?'USD':'TL'), mal:mal, dy:dy };
             });
-            var losers = rows.filter(function(r){ return r.dy>0; });
-            var w = function(r){ return Math.pow(r.dy, _bolGuc); };
-            var tW = losers.reduce(function(a,r){ return a+w(r); }, 0);
-            losers.sort(function(a,b){ return b.dy-a.dy; });
-            losers.forEach(function(r){ r.oran = tW>0?w(r)/tW:0; r.pay = tutar>0?Math.round(tutar*r.oran):0; });
-            if(tutar>0 && losers.length){ var dag=losers.reduce(function(a,r){return a+r.pay;},0); losers[0].pay += Math.round(tutar)-dag; }
             var f = function(n){ return n.toLocaleString('tr-TR'); };
-            var payHucre = function(r){
-                if(r.dy<=0) return '<span style="color:var(--accent-green);font-size:10px;">kârda</span>';
-                if(tutar>0) return '<b style="color:var(--accent-green);">'+f(r.pay)+(r.cur==='USD'?' $':' TL')+'</b><br><span style="font-size:9px;color:var(--text-muted);">%'+Math.round(r.oran*100)+'</span>';
-                return '<b>%'+Math.round(r.oran*100)+'</b>';
-            };
-            var head = '<div style="display:flex;font-size:9px;color:var(--text-muted);padding-bottom:4px;"><span style="flex:1.4;">Hisse</span><span style="flex:1;text-align:center;">Maliyet</span><span style="flex:0.9;text-align:right;">Fiyat</span><span style="flex:0.8;text-align:right;">Düşüş</span><span style="flex:1.1;text-align:right;">Pay</span></div>';
-            el.innerHTML = head + rows.map(function(r){
-                var dyStr = r.mal>0 ? ('<span style="color:'+(r.dy>0?'var(--accent-red)':'var(--accent-green)')+';">'+(r.dy>0?('%'+r.dy.toFixed(1).replace('.',',')):('+%'+(-r.dy).toFixed(1).replace('.',',')))+'</span>') : '<span style="color:var(--text-muted);">?</span>';
-                return '<div style="display:flex;align-items:center;border-top:1px solid var(--card-border);padding:6px 0;">'+
-                    '<span style="flex:1.4;font-weight:600;font-size:11px;">'+r.ad+'</span>'+
-                    '<span style="flex:1;text-align:center;"><input type="number" step="any" inputmode="decimal" value="'+(r.mal||'')+'" onchange="maliyetGir(\''+r.ad.replace(/\x27/g,"")+'\',this)" style="width:62px;padding:4px;text-align:center;font-size:11px;"></span>'+
-                    '<span style="flex:0.9;text-align:right;font-size:11px;">'+r.fiyat+'</span>'+
-                    '<span style="flex:0.8;text-align:right;font-size:11px;">'+dyStr+'</span>'+
-                    '<span style="flex:1.1;text-align:right;">'+payHucre(r)+'</span></div>';
-            }).join('') + (losers.length?'':'<div style="margin-top:6px;color:var(--text-muted);font-size:11px;">Şu an zararda hisse yok (maliyetleri kontrol et).</div>');
+            var sembol = function(c){ return c==='USD'?' $':' TL'; };
+            var w = function(r){ return Math.pow(r.dy, _bolGuc); };
+            var bloklar = [];
+            [['TL','₺ TL varlıklar (Midas / QNB)'],['USD','$ Dolar varlıklar (Binance)']].forEach(function(gc){
+                var cur=gc[0], baslik=gc[1];
+                var curRows = rows.filter(function(r){ return r.cur===cur; });
+                if(!curRows.length) return;
+                var losers = curRows.filter(function(r){ return r.dy>0; });
+                var pot = potlar[cur];
+                var tW = losers.reduce(function(a,r){ return a+w(r); }, 0);
+                losers.sort(function(a,b){ return b.dy-a.dy; });
+                losers.forEach(function(r){ r.oran = tW>0?w(r)/tW:0; r.pay = pot>0?Math.round(pot*r.oran):0; });
+                if(pot>0 && losers.length){ var dag=losers.reduce(function(a,r){return a+r.pay;},0); losers[0].pay += Math.round(pot)-dag; }
+                curRows.sort(function(a,b){ return b.dy-a.dy; });
+                var head = '<div style="font-size:11px;font-weight:600;margin:10px 0 2px;color:var(--text-main);">'+baslik+(pot>0?(' — '+f(Math.round(pot))+sembol(cur)+' dağıtımı'):'')+'</div>'+
+                    '<div style="display:flex;font-size:9px;color:var(--text-muted);padding-bottom:4px;"><span style="flex:1.4;">Varlık</span><span style="flex:1;text-align:center;">Maliyet</span><span style="flex:0.9;text-align:right;">Fiyat</span><span style="flex:0.8;text-align:right;">Düşüş</span><span style="flex:1.1;text-align:right;">Pay</span></div>';
+                var govde = curRows.map(function(r){
+                    var dyStr = r.mal>0 ? ('<span style="color:'+(r.dy>0?'var(--accent-red)':'var(--accent-green)')+';">'+(r.dy>0?('%'+r.dy.toFixed(1).replace('.',',')):('+%'+(-r.dy).toFixed(1).replace('.',',')))+'</span>') : '<span style="color:var(--text-muted);">?</span>';
+                    var payH = (r.dy<=0) ? '<span style="color:var(--accent-green);font-size:10px;">kârda</span>'
+                        : (pot>0 ? '<b style="color:var(--accent-green);">'+f(r.pay)+sembol(cur)+'</b><br><span style="font-size:9px;color:var(--text-muted);">%'+Math.round(r.oran*100)+'</span>'
+                                 : '<b>%'+Math.round(r.oran*100)+'</b>');
+                    return '<div style="display:flex;align-items:center;border-top:1px solid var(--card-border);padding:6px 0;">'+
+                        '<span style="flex:1.4;font-weight:600;font-size:11px;">'+r.ad+'</span>'+
+                        '<span style="flex:1;text-align:center;"><input type="number" step="any" inputmode="decimal" value="'+(r.mal||'')+'" onchange="maliyetGir(\''+r.ad.replace(/\x27/g,"")+'\',this)" style="width:62px;padding:4px;text-align:center;font-size:11px;"></span>'+
+                        '<span style="flex:0.9;text-align:right;font-size:11px;">'+r.fiyat+'</span>'+
+                        '<span style="flex:0.8;text-align:right;font-size:11px;">'+dyStr+'</span>'+
+                        '<span style="flex:1.1;text-align:right;">'+payH+'</span></div>';
+                }).join('');
+                var uyari = (pot>0 && !losers.length) ? '<div style="font-size:10px;color:var(--text-muted);padding:4px 0;">Bu grupta zararda varlık yok.</div>' : '';
+                bloklar.push(head+govde+uyari);
+            });
+            el.innerHTML = bloklar.join('') || '<span style="color:var(--text-muted)">Varlık bulunamadı.</span>';
         }
         window.bolustur = bolustur;
 
@@ -1210,12 +1226,14 @@
             }).join('');
         }
         function renderMaas(){
-            var tutar=parseFloat(document.getElementById('maasTutar').value)||0;
+            var tTL=parseFloat((document.getElementById('maasTutarTL').value||'').replace(',','.'))||0;
+            var tUSD=parseFloat((document.getElementById('maasTutarUSD').value||'').replace(',','.'))||0;
             var arr=SKOR.varliklar.filter(function(v){ return v.puan!=null; }).slice(0,5);
             document.getElementById('maasListe').innerHTML=
                 '<div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Teknik puana göre en yüksek 5 varlık:</div>'+
                 arr.map(function(v){
                     var bt=v.backtest&&v.backtest[BT_ILERI]&&v.backtest[BT_ILERI].yuksek;
+                    var tutar=(v.para==='USD')?tUSD:tTL;
                     var adet=tutar&&v.fiyat?(' · '+Math.floor(tutar/v.fiyat)+' adet alınır'):'';
                     var edge=bt&&bt.n?(' · geçmişte yüksekken '+BT_ILERI+'g ort. '+yz(bt.ort)):'';
                     return '<div style="display:flex;align-items:center;padding:7px 0;border-top:1px solid var(--card-border);"><span style="min-width:116px;font-weight:600;">'+v.ad+'</span><span style="color:'+pr(v.puan)+';font-weight:bold;">'+v.puan+'</span><span style="font-size:10px;color:var(--text-muted);margin-left:8px;">'+v.fiyat+(adet)+(edge)+'</span></div>';
@@ -1237,7 +1255,7 @@
             document.getElementById('ayarToplu').innerHTML='<div style="display:flex;gap:6px;">'+kutu('Yüksek puanda','yuksek','#10b981')+kutu('Orta','orta','#f59e0b')+kutu('Düşük','dusuk','#ef4444')+'</div><div style="font-size:9px;color:var(--text-muted);margin-top:5px;">Tüm portföy, son 3 yıl. Puan '+BT_ILERI+' gün sonraki ortalama getiriyle eşleştirildi.</div>';
             document.getElementById('ayarSemboller').innerHTML=SKOR.varliklar.map(function(v){ return '<span style="display:inline-block;background:var(--input-bg);border-radius:12px;padding:3px 10px;margin:3px 4px 0 0;">'+v.ad+'</span>'; }).join('');
         }
-        document.getElementById('maasTutar') && document.getElementById('maasTutar').addEventListener('input',function(){ if(SKOR) renderMaas(); if(window.bolustur) window.bolustur(); });
+        ['maasTutarTL','maasTutarUSD'].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener('input',function(){ if(SKOR) renderMaas(); if(window.bolustur) window.bolustur(); }); });
         fetch('./skor.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
             SKOR=d; window.SKOR=d; renderPiyasa(); renderAnaliz(); renderMaas(); renderHaber(); renderAyar();
             if(window.bolustur) window.bolustur();
