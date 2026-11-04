@@ -81,6 +81,9 @@ for v in liste:
         rows=ohlc(v["yahoo"])
         H=[r[0] for r in rows]; L=[r[1] for r in rows]; C=[r[2] for r in rows]
         puan,g=skor_hesapla(H,L,C,len(C)-1)
+        if puan is None:
+            res["varliklar"].append({"ad":v["ad"],"tip":v["tip"],"para":v["para"],"fiyat":round(C[-1],2),"yetersiz":True})
+            continue
         bt=backtest(H,L,C)
         # toplu havuz için ham getirileri de topla
         for i in range(200,len(C)-20):
