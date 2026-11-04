@@ -341,12 +341,25 @@
 
     <div class="sayfa" id="sp-maas" style="display:none">
     <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
-        <div class="card-title" style="color: var(--accent-green);"><span>💰 MAAŞ GÜNÜ ASİSTANI</span></div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Ekstra bakiye geldiğinde hangi varlığa bakacağını iki açıdan karşılaştırır: senin kuralın (en çok düşen) ile teknik puan. Karar senin.</div>
-        <label>Eklenecek tutar (opsiyonel)</label>
-        <input type="number" id="maasTutar" placeholder="Örn: 10000" step="any">
-        <div id="maasListe" style="margin-top:10px;font-size:12px;">Yükleniyor…</div>
-        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Teknik puan ve geçmiş testi fikir içindir; yatırım tavsiyesi değildir.</div>
+        <div class="card-title" style="color: var(--accent-green);"><span>💰 ZARARDAKİLERE BÖLÜŞTÜR</span></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Girdiğin tutarı <b>yalnızca zararda olan sepetlere</b>, daha çok düşene daha çok gelecek şekilde böler. Sepetlerin "güncel değer" alanı dolu olmalı.</div>
+        <label>Bölüştürülecek tutar</label>
+        <input type="number" id="maasTutar" placeholder="Örn: 10000" step="any" inputmode="decimal">
+        <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="sepet-tab active" id="bolY1" style="flex:1;text-align:center;" onclick="bolYontem('yuzde')">% düşüşe göre</button>
+            <button class="sepet-tab" id="bolY2" style="flex:1;text-align:center;" onclick="bolYontem('tl')">TL zarara göre</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+            <button class="sepet-tab active" id="bolG1" style="flex:1;text-align:center;" onclick="bolGuc(1)">Orantılı</button>
+            <button class="sepet-tab" id="bolG2" style="flex:1;text-align:center;" onclick="bolGuc(2)">Daha keskin</button>
+        </div>
+        <div id="bolustRes" style="margin-top:12px;font-size:12px;">Tutar gir ve sepetlerin güncel değerini doldur.</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);">“Daha keskin”: büyük düşenlere orantının da ötesinde daha fazla pay verir. Hesaplama kendi girdiğin verilere dayanır; yatırım tavsiyesi değildir.</div>
+    </div>
+    <div class="card" style="border-color: rgba(59, 130, 246, 0.3);">
+        <div class="card-title" style="color: var(--accent-blue);"><span>🎯 TEKNİK PUAN KARŞILAŞTIRMASI</span></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Senin kuralın en çok düşeni işaret eder; teknik puan ise dönme ihtimali en yüksek olanı. İkisine birden bakmak için:</div>
+        <div id="maasListe" style="font-size:12px;">Yükleniyor…</div>
     </div>
     </div><!-- /sp-maas -->
 
@@ -819,6 +832,46 @@
                 `<div style="font-size:10px;color:var(--text-muted);margin:-2px 0 6px;">${x.alt}</div>`).join('');
         }
 
+        var _bolYontem = 'yuzde', _bolGuc = 1;
+        function bolYontem(y){ _bolYontem = y;
+            document.getElementById('bolY1').classList.toggle('active', y==='yuzde');
+            document.getElementById('bolY2').classList.toggle('active', y==='tl');
+            bolustur();
+        }
+        function bolGuc(g){ _bolGuc = g;
+            document.getElementById('bolG1').classList.toggle('active', g===1);
+            document.getElementById('bolG2').classList.toggle('active', g===2);
+            bolustur();
+        }
+        function bolustur(){
+            var el = document.getElementById('bolustRes'); if(!el) return;
+            var ham = (document.getElementById('maasTutar').value||'').replace(',', '.');
+            var tutar = parseFloat(ham) || 0;
+            var bugun = bugunTarih();
+            var L = (sepetler||[]).map(function(s){
+                var h = sepetHesap(s, bugun), g = sayi(s.guncelDeger);
+                if(!(g>0) || !(h.kalanAnapara>0)) return null;
+                var dy = (1 - g/h.kalanAnapara)*100;      // pozitifse zararda
+                var dtl = h.kalanAnapara - g;
+                if(dy <= 0) return null;                   // sadece zararda olanlar
+                var w = (_bolYontem==='tl') ? dtl : dy;
+                return { ad:(s.platform?s.platform+' · ':'')+s.name, cur:s.currency||'TL', dy:dy, w:Math.pow(w, _bolGuc) };
+            }).filter(Boolean).sort(function(a,b){ return b.dy - a.dy; });
+            if(!L.length){ el.innerHTML = '<span style="color:var(--text-muted)">Zararda sepet yok ya da güncel değer girilmemiş. Sepetler sekmesinden her sepetin güncel değerini doldur.</span>'; return; }
+            var toplamW = L.reduce(function(a,x){ return a+x.w; }, 0);
+            L.forEach(function(x){ x.oran = x.w/toplamW; x.pay = tutar>0 ? Math.round(tutar*x.oran) : 0; });
+            if(tutar>0){ var dagitilan = L.reduce(function(a,x){return a+x.pay;},0); if(L[0]) L[0].pay += Math.round(tutar)-dagitilan; }
+            var f = function(n){ return n.toLocaleString('tr-TR'); };
+            el.innerHTML =
+                (tutar>0 ? '<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Toplam '+f(Math.round(tutar))+' şöyle dağıtılır:</div>' : '<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Dağılım oranları (tutar girersen TL olarak böler):</div>') +
+                L.map(function(x){
+                    var sag = tutar>0 ? ('<b style="color:var(--accent-green)">'+f(x.pay)+' '+(x.cur==='USD'?'$':'TL')+'</b> · %'+Math.round(x.oran*100)) : ('<b>%'+Math.round(x.oran*100)+'</b>');
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px solid var(--card-border);"><span><b>'+x.ad+'</b><br><span style="font-size:10px;color:var(--accent-red);">%'+x.dy.toFixed(1).replace('.',',')+' düşüşte</span></span><span style="text-align:right;">'+sag+'</span></div>';
+                }).join('') +
+                '<div style="margin-top:6px;font-size:10px;color:var(--text-muted);">En çok düşen en üstte ve en büyük payı alır. Sepetlerin farklı para biriminde olanları kendi biriminde gösterilir.</div>';
+        }
+        window.bolustur = bolustur;
+
         function calculateXIRR(cashflows) {
             if (cashflows.length < 2) return 0;
             let rate = 0.1;
@@ -1095,6 +1148,7 @@
         document.querySelectorAll('#sayfaBar .sepet-tab').forEach(t=>t.classList.toggle('active', t.dataset.sayfa===s));
         window.scrollTo(0,0);
         setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 30);
+        if(s==='maas' && window.bolustur) window.bolustur();
     }
     (function(){
         var RENK={AL:['rgba(16,185,129,.15)','#10b981'], SAT:['rgba(239,68,68,.15)','#ef4444'], 'NÖTR':['rgba(245,158,11,.15)','#f59e0b']};
@@ -1169,7 +1223,7 @@
             document.getElementById('ayarToplu').innerHTML='<div style="display:flex;gap:6px;">'+kutu('Yüksek puanda','yuksek','#10b981')+kutu('Orta','orta','#f59e0b')+kutu('Düşük','dusuk','#ef4444')+'</div><div style="font-size:9px;color:var(--text-muted);margin-top:5px;">Tüm portföy, son 3 yıl. Puan '+BT_ILERI+' gün sonraki ortalama getiriyle eşleştirildi.</div>';
             document.getElementById('ayarSemboller').innerHTML=SKOR.varliklar.map(function(v){ return '<span style="display:inline-block;background:var(--input-bg);border-radius:12px;padding:3px 10px;margin:3px 4px 0 0;">'+v.ad+'</span>'; }).join('');
         }
-        document.getElementById('maasTutar') && document.getElementById('maasTutar').addEventListener('input',function(){ if(SKOR) renderMaas(); });
+        document.getElementById('maasTutar') && document.getElementById('maasTutar').addEventListener('input',function(){ if(SKOR) renderMaas(); if(window.bolustur) window.bolustur(); });
         fetch('./skor.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
             SKOR=d; renderPiyasa(); renderAnaliz(); renderMaas(); renderHaber(); renderAyar();
         }).catch(function(){ document.getElementById('azSira').innerHTML='<span style="color:var(--text-muted)">Puan verisi henüz yok. Her hafta içi otomatik güncellenir.</span>'; });
