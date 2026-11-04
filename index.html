@@ -114,6 +114,23 @@
         <h1>📊 PORTFÖY & REALİZASYON ENGINE</h1>
     </div>
 
+    <div class="sepet-bar" id="sayfaBar" style="margin-bottom:10px;">
+        <div class="sepet-tab active" data-sayfa="ozet" onclick="sayfaGec('ozet')">📊 Özet</div>
+        <div class="sepet-tab" data-sayfa="sepet" onclick="sayfaGec('sepet')">💼 Sepetler</div>
+        <div class="sepet-tab" data-sayfa="analiz" onclick="sayfaGec('analiz')">🎯 Analiz</div>
+        <div class="sepet-tab" data-sayfa="maas" onclick="sayfaGec('maas')">💰 Maaş Günü</div>
+        <div class="sepet-tab" data-sayfa="haber" onclick="sayfaGec('haber')">📰 Haberler</div>
+        <div class="sepet-tab" data-sayfa="ayar" onclick="sayfaGec('ayar')">⚙️ Ayarlar</div>
+    </div>
+
+    <div class="sayfa" id="sp-ozet">
+
+    <!-- PİYASA YÖNÜ -->
+    <div class="card" style="border-color: rgba(139, 92, 246, 0.3);">
+        <div class="card-title" style="color: var(--accent-purple);"><span>🌍 PİYASA YÖNÜ (bugün)</span></div>
+        <div id="piyasaKutu" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">Yükleniyor…</div>
+    </div>
+
     <!-- 1. TOPLAM VARLIK DAĞILIMI (PASTA GRAFİK) -->
     <div class="card" style="border-color: rgba(6, 182, 212, 0.3);">
         <div class="card-title" style="color: var(--accent-cyan);">
@@ -143,17 +160,25 @@
         <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Güncel değer ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
     </div>
 
+    </div><!-- /sp-ozet -->
+
+    <div class="sayfa" id="sp-analiz" style="display:none">
     <!-- ANALİZ — AL EĞİLİMİ PUANI -->
     <div class="card" style="border-color: rgba(59, 130, 246, 0.4);">
         <div class="card-title" style="color: var(--accent-blue);">
-            <span>🎯 ANALİZ — AL EĞİLİMİ PUANI</span>
+            <span>🎯 AL EĞİLİMİ PUANI</span>
             <span id="azGuncel" style="font-size:10px;color:var(--text-muted);font-weight:normal;">yükleniyor…</span>
         </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button id="azBtnGun" class="sepet-tab active" style="flex:1;text-align:center;" onclick="azVade('gun')">Günlük</button>
+            <button id="azBtn4s" class="sepet-tab" style="flex:1;text-align:center;" onclick="azVade('4s')">4 Saatlik (kısa vade)</button>
+        </div>
         <div id="azSira" style="font-size:12px;">Yükleniyor…</div>
-        <div id="azToplu" style="margin-top:12px;border-top:1px solid var(--card-border);padding-top:10px;"></div>
-        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);line-height:1.5;">10 teknik gösterge (RSI, Stokastik, Williams %R, CCI, MACD, Momentum, EMA20, MA50, MA200, Bollinger) toplanıp 0–100 puana çevrilir. 50 ortası. <b>Puan geleceği tahmin etmez, yalnızca fikir içindir; yatırım tavsiyesi değildir.</b></div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);line-height:1.5;">10 teknik gösterge (RSI, Stokastik, Williams %R, CCI, MACD, Momentum, EMA20, MA50, MA200, Bollinger) toplanıp 0–100 puana çevrilir. 50 ortası. Bir varlığa dokununca göstergeler ve o varlığın geçmiş testi açılır. <b>Puan geleceği tahmin etmez, fikir içindir; yatırım tavsiyesi değildir.</b></div>
     </div>
+    </div><!-- /sp-analiz -->
 
+    <div class="sayfa" id="sp-sepet" style="display:none">
     <!-- SEPET BARI -->
     <div class="sepet-bar" id="sepetBar"></div>
     <div style="font-size:10px;color:var(--text-muted);margin:-6px 0 10px;">🟢 hedefte · 🟡 başabaşın üstünde · 🔴 başabaşın altında</div>
@@ -312,6 +337,48 @@
             </div>
         </div>
     </div>
+    </div><!-- /sp-sepet -->
+
+    <div class="sayfa" id="sp-maas" style="display:none">
+    <div class="card" style="border-color: rgba(16, 185, 129, 0.4);">
+        <div class="card-title" style="color: var(--accent-green);"><span>💰 MAAŞ GÜNÜ ASİSTANI</span></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Ekstra bakiye geldiğinde hangi varlığa bakacağını iki açıdan karşılaştırır: senin kuralın (en çok düşen) ile teknik puan. Karar senin.</div>
+        <label>Eklenecek tutar (opsiyonel)</label>
+        <input type="number" id="maasTutar" placeholder="Örn: 10000" step="any">
+        <div id="maasListe" style="margin-top:10px;font-size:12px;">Yükleniyor…</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Teknik puan ve geçmiş testi fikir içindir; yatırım tavsiyesi değildir.</div>
+    </div>
+    </div><!-- /sp-maas -->
+
+    <div class="sayfa" id="sp-haber" style="display:none">
+    <div class="card" style="border-color: rgba(6, 182, 212, 0.3);">
+        <div class="card-title" style="color: var(--accent-cyan);"><span>📰 HABERLER</span></div>
+        <div id="haberListe" style="font-size:12px;">Yükleniyor…</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Kaynak: Yahoo Finance. BIST hisselerinde İngilizce kaynak sınırlı olduğundan çoğunlukla ABD varlıkları için haber görünür.</div>
+    </div>
+    </div><!-- /sp-haber -->
+
+    <div class="sayfa" id="sp-ayar" style="display:none">
+    <div class="card" style="border-color: rgba(245, 158, 11, 0.3);">
+        <div class="card-title" style="color: var(--accent-orange);"><span>⚙️ GEÇMİŞ TESTİ AYARI</span></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Puan yüksek/orta/düşükken alım, kaç gün sonra ne getirmiş? Aşağıdan süreyi seç — Analiz ekranındaki testler de bu süreyi kullanır.</div>
+        <div style="display:flex;gap:6px;">
+            <button class="sepet-tab" data-ileri="10" style="flex:1;text-align:center;" onclick="ileriSec(10)">10 gün</button>
+            <button class="sepet-tab active" data-ileri="20" style="flex:1;text-align:center;" onclick="ileriSec(20)">20 gün</button>
+            <button class="sepet-tab" data-ileri="60" style="flex:1;text-align:center;" onclick="ileriSec(60)">60 gün</button>
+        </div>
+        <div id="ayarToplu" style="margin-top:12px;"></div>
+    </div>
+    <div class="card" style="border-color: rgba(59, 130, 246, 0.3);">
+        <div class="card-title" style="color: var(--accent-blue);"><span>🔔 BİLDİRİM</span></div>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.6;">Bir varlığın puanı belirlediğin eşiği geçince telefona bildirim gönderme özelliği hazırlanabilir (Cloudflare ile, ücretsiz). Kurmak istersen Claude'a “bildirimi kur” yaz; eşik değerini ve hangi varlıkları takip edeceğini birlikte belirleriz.</div>
+    </div>
+    <div class="card" style="border-color: rgba(156, 163, 175, 0.3);">
+        <div class="card-title" style="color: var(--text-muted);"><span>📦 TAKİP EDİLEN VARLIKLAR</span></div>
+        <div id="ayarSemboller" style="font-size:12px;">Yükleniyor…</div>
+        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Yeni bir varlık aldığında Claude'a söyle, listeye eklesin.</div>
+    </div>
+    </div><!-- /sp-ayar -->
 
     <script>
         function bildir(m) {
@@ -1021,56 +1088,91 @@
     </script>
 
     <script>
+    var SKOR=null, AZ_VADE='gun', BT_ILERI='20';
+    function sayfaGec(s){
+        document.querySelectorAll('.sayfa').forEach(p=>p.style.display='none');
+        var el=document.getElementById('sp-'+s); if(el) el.style.display='block';
+        document.querySelectorAll('#sayfaBar .sepet-tab').forEach(t=>t.classList.toggle('active', t.dataset.sayfa===s));
+        window.scrollTo(0,0);
+        setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 30);
+    }
     (function(){
-        const RENK = {AL:['rgba(16,185,129,.15)','#10b981'], SAT:['rgba(239,68,68,.15)','#ef4444'], 'NÖTR':['rgba(245,158,11,.15)','#f59e0b']};
-        function puanRenk(p){ return p>=55 ? '#10b981' : p>=41 ? '#f59e0b' : '#ef4444'; }
-        function yuzde(x){ return (x>0?'+':'') + x.toFixed(1) + '%'; }
-        function btSatir(bt){
-            if(!bt) return '';
-            const p = k => bt[k] && bt[k].n ? `<b style="color:${k==='yuksek'?'#10b981':k==='dusuk'?'#ef4444':'#f59e0b'}">${yuzde(bt[k].ort)}</b>` : '—';
-            return `<div style="margin-top:6px;font-size:10px;color:var(--text-muted);line-height:1.6;">Geçmiş testi — bu varlıkta puan <b style="color:#10b981">yüksekken</b> alsaydın 20 gün sonra ort. ${p('yuksek')}, ortayken ${p('orta')}, düşükken ${p('dusuk')}.</div>`;
+        var RENK={AL:['rgba(16,185,129,.15)','#10b981'], SAT:['rgba(239,68,68,.15)','#ef4444'], 'NÖTR':['rgba(245,158,11,.15)','#f59e0b']};
+        function pr(p){ return p>=55?'#10b981':p>=41?'#f59e0b':'#ef4444'; }
+        function yz(x){ return (x>0?'+':'')+Number(x).toFixed(1)+'%'; }
+        window.azVade=function(m){ AZ_VADE=m;
+            document.getElementById('azBtnGun').classList.toggle('active',m==='gun');
+            document.getElementById('azBtn4s').classList.toggle('active',m==='4s');
+            if(SKOR) renderAnaliz();
+        };
+        window.ileriSec=function(n){ BT_ILERI=String(n);
+            document.querySelectorAll('#sp-ayar .sepet-tab[data-ileri]').forEach(b=>b.classList.toggle('active',b.dataset.ileri===BT_ILERI));
+            if(SKOR){ renderAnaliz(); renderAyar(); }
+        };
+        function btSatir(v){
+            var bt=v.backtest&&v.backtest[BT_ILERI]; if(!bt) return '';
+            var p=function(k){ return bt[k]&&bt[k].n ? '<b style="color:'+(k==='yuksek'?'#10b981':k==='dusuk'?'#ef4444':'#f59e0b')+'">'+yz(bt[k].ort)+'</b>' : '—'; };
+            return '<div style="margin-top:6px;font-size:10px;color:var(--text-muted);line-height:1.6;">Geçmiş testi ('+BT_ILERI+'g) — bu varlıkta puan <b style="color:#10b981">yüksekken</b> alım ort. '+p('yuksek')+', ortayken '+p('orta')+', düşükken '+p('dusuk')+'.</div>';
         }
         function detay(v){
-            const g = v.gostergeler.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--card-border);"><span style="color:var(--text-muted);">${r[0]}</span><span style="display:flex;gap:6px;align-items:center;"><span style="color:var(--text-muted);font-size:10px;min-width:30px;text-align:right;">${r[1]}</span><span style="background:${RENK[r[2]][0]};color:${RENK[r[2]][1]};font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;min-width:30px;text-align:center;">${r[2]}</span></span></div>`).join('');
-            return `<div style="padding:6px 0 2px;">${g}${btSatir(v.backtest)}</div>`;
+            var g=(AZ_VADE==='4s'?v.gostergeler4s:v.gostergeler)||[];
+            if(!g.length) return '<div style="padding:6px 0;color:var(--text-muted);font-size:11px;">Bu vade için veri yok.</div>';
+            var h=g.map(function(r){ return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--card-border);"><span style="color:var(--text-muted);">'+r[0]+'</span><span style="display:flex;gap:6px;align-items:center;"><span style="color:var(--text-muted);font-size:10px;min-width:30px;text-align:right;">'+r[1]+'</span><span style="background:'+RENK[r[2]][0]+';color:'+RENK[r[2]][1]+';font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;min-width:30px;text-align:center;">'+r[2]+'</span></span></div>'; }).join('');
+            return '<div style="padding:6px 0 2px;">'+h+(AZ_VADE==='gun'?btSatir(v):'')+'</div>';
         }
-        function render(d){
-            document.getElementById('azGuncel').textContent = d.guncelleme;
-            const kap = document.getElementById('azSira');
-            kap.innerHTML = d.varliklar.map((v,i)=>{
-                if(v.yetersiz) return `<div style="padding:7px 0;color:var(--text-muted);border-top:${i?'1px solid var(--card-border)':'none'};">${v.ad} <span style="font-size:10px;">— yeterli geçmiş veri yok</span></div>`;
-                const bar = `<div style="flex:1;height:6px;border-radius:3px;background:var(--input-bg);overflow:hidden;margin:0 8px;"><div style="width:${v.puan}%;height:100%;background:${puanRenk(v.puan)};"></div></div>`;
-                return `<div class="azRow" data-i="${i}" style="cursor:pointer;border-top:${i?'1px solid var(--card-border)':'none'};">
-                    <div style="display:flex;align-items:center;padding:8px 0;">
-                        <span style="min-width:120px;font-weight:600;">${v.ad}</span>${bar}
-                        <span style="font-weight:bold;color:${puanRenk(v.puan)};min-width:26px;text-align:right;">${v.puan}</span>
-                        <span style="color:var(--text-muted);margin-left:6px;">▾</span>
-                    </div>
-                    <div class="azDetay" style="display:none;">${detay(v)}</div>
-                </div>`;
+        function renderAnaliz(){
+            document.getElementById('azGuncel').textContent=SKOR.guncelleme;
+            var arr=SKOR.varliklar.slice();
+            if(AZ_VADE==='4s') arr.sort(function(a,b){ return (b.puan4s==null?-1:b.puan4s)-(a.puan4s==null?-1:a.puan4s); });
+            var kap=document.getElementById('azSira');
+            kap.innerHTML=arr.map(function(v,i){
+                var p=AZ_VADE==='4s'?v.puan4s:v.puan;
+                if(v.yetersiz||p==null) return '<div style="padding:7px 0;color:var(--text-muted);border-top:'+(i?'1px solid var(--card-border)':'none')+';">'+v.ad+' <span style="font-size:10px;">— veri yok</span></div>';
+                var bar='<div style="flex:1;height:6px;border-radius:3px;background:var(--input-bg);overflow:hidden;margin:0 8px;"><div style="width:'+p+'%;height:100%;background:'+pr(p)+';"></div></div>';
+                return '<div class="azRow" style="cursor:pointer;border-top:'+(i?'1px solid var(--card-border)':'none')+';"><div style="display:flex;align-items:center;padding:8px 0;"><span style="min-width:116px;font-weight:600;">'+v.ad+'</span>'+bar+'<span style="font-weight:bold;color:'+pr(p)+';min-width:26px;text-align:right;">'+p+'</span><span style="color:var(--text-muted);margin-left:6px;">▾</span></div><div class="azDetay" style="display:none;">'+detay(v)+'</div></div>';
             }).join('');
-            kap.querySelectorAll('.azRow').forEach(r=>{
-                r.addEventListener('click', ()=>{
-                    const dd = r.querySelector('.azDetay');
-                    dd.style.display = dd.style.display==='none' ? 'block' : 'none';
-                });
-            });
-            const t = d.toplu_backtest, kutu = (ad,k,renk)=>{
-                const b = t[k]||{n:0};
-                return `<div style="flex:1;background:var(--input-bg);border-radius:8px;padding:8px;text-align:center;">
-                    <div style="font-size:10px;color:var(--text-muted);">${ad}</div>
-                    <div style="font-size:16px;font-weight:bold;color:${renk};">${b.n?yuzde(b.ort):'—'}</div>
-                    <div style="font-size:9px;color:var(--text-muted);">${b.n?('%'+b.pozitif_oran+' artı · '+b.n+' örnek'):''}</div>
-                </div>`;
-            };
-            document.getElementById('azToplu').innerHTML =
-                `<div style="font-size:11px;font-weight:600;margin-bottom:6px;">📊 GEÇMİŞ TESTİ — tüm portföy (puan → 20 gün sonraki ort. getiri)</div>
-                 <div style="display:flex;gap:6px;">${kutu('Yüksek puanda','yuksek','#10b981')}${kutu('Orta puanda','orta','#f59e0b')}${kutu('Düşük puanda','dusuk','#ef4444')}</div>
-                 <div style="font-size:9px;color:var(--text-muted);margin-top:5px;">Son 3 yılın her günü için hesaplandı. Yüksek puanlı günlerde alım tarihsel olarak daha iyi sonuç vermiş — ama geçmiş, geleceğin garantisi değildir.</div>`;
+            kap.querySelectorAll('.azRow').forEach(function(r){ r.addEventListener('click',function(){ var d=r.querySelector('.azDetay'); d.style.display=d.style.display==='none'?'block':'none'; }); });
         }
-        fetch('./skor.json?t=' + Date.now(), {cache:'no-store'})
-            .then(r=>r.json()).then(render)
-            .catch(()=>{ document.getElementById('azSira').innerHTML='<span style="color:var(--text-muted)">Puan verisi henüz yok. Her hafta içi otomatik güncellenir.</span>'; });
+        function renderPiyasa(){
+            var m=SKOR.piyasa||{};
+            document.getElementById('piyasaKutu').innerHTML=Object.keys(m).map(function(k){
+                var o=m[k]; if(!o||o.deger==null) return '';
+                var c=o.degisim>=0?'#10b981':'#ef4444';
+                return '<div style="background:var(--input-bg);border-radius:8px;padding:8px;"><div style="font-size:10px;color:var(--text-muted);">'+k+'</div><div style="font-weight:bold;">'+o.deger.toLocaleString('tr-TR')+'</div><div style="font-size:11px;color:'+c+';">'+(o.degisim>=0?'+':'')+o.degisim+'%</div></div>';
+            }).join('');
+        }
+        function renderMaas(){
+            var tutar=parseFloat(document.getElementById('maasTutar').value)||0;
+            var arr=SKOR.varliklar.filter(function(v){ return v.puan!=null; }).slice(0,5);
+            document.getElementById('maasListe').innerHTML=
+                '<div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">Teknik puana göre en yüksek 5 varlık:</div>'+
+                arr.map(function(v){
+                    var bt=v.backtest&&v.backtest[BT_ILERI]&&v.backtest[BT_ILERI].yuksek;
+                    var adet=tutar&&v.fiyat?(' · '+Math.floor(tutar/v.fiyat)+' adet alınır'):'';
+                    var edge=bt&&bt.n?(' · geçmişte yüksekken '+BT_ILERI+'g ort. '+yz(bt.ort)):'';
+                    return '<div style="display:flex;align-items:center;padding:7px 0;border-top:1px solid var(--card-border);"><span style="min-width:116px;font-weight:600;">'+v.ad+'</span><span style="color:'+pr(v.puan)+';font-weight:bold;">'+v.puan+'</span><span style="font-size:10px;color:var(--text-muted);margin-left:8px;">'+v.fiyat+(adet)+(edge)+'</span></div>';
+                }).join('')+
+                '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">↔ Bunu Özet ekranındaki “en çok düşen sepet” ile karşılaştır: senin kuralın en çok düşeni, teknik puan ise dönme ihtimali en yüksek olanı işaret eder. İkisi uyuşuyorsa daha güçlü bir fikirdir.</div>';
+        }
+        function renderHaber(){
+            var h=[];
+            SKOR.varliklar.forEach(function(v){ (v.haberler||[]).forEach(function(n){ h.push([v.ad,n]); }); });
+            if(!h.length){ document.getElementById('haberListe').innerHTML='<span style="color:var(--text-muted)">Şu an haber yok.</span>'; return; }
+            document.getElementById('haberListe').innerHTML=h.map(function(x){
+                var n=x[1], t=n.zaman?new Date(n.zaman*1000).toLocaleDateString('tr-TR'):'';
+                return '<a href="'+n.link+'" target="_blank" style="display:block;padding:8px 0;border-top:1px solid var(--card-border);text-decoration:none;color:var(--text-main);"><div style="font-size:9px;color:var(--accent-cyan);">'+x[0]+' · '+(n.kaynak||'')+' · '+t+'</div><div style="font-size:12px;">'+n.baslik+'</div></a>';
+            }).join('');
+        }
+        function renderAyar(){
+            var t=(SKOR.toplu_backtest||{})[BT_ILERI]||{};
+            var kutu=function(ad,k,renk){ var b=t[k]||{n:0}; return '<div style="flex:1;background:var(--input-bg);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:10px;color:var(--text-muted);">'+ad+'</div><div style="font-size:16px;font-weight:bold;color:'+renk+';">'+(b.n?yz(b.ort):'—')+'</div><div style="font-size:9px;color:var(--text-muted);">'+(b.n?('%'+b.poz+' artı · '+b.n+' örnek'):'')+'</div></div>'; };
+            document.getElementById('ayarToplu').innerHTML='<div style="display:flex;gap:6px;">'+kutu('Yüksek puanda','yuksek','#10b981')+kutu('Orta','orta','#f59e0b')+kutu('Düşük','dusuk','#ef4444')+'</div><div style="font-size:9px;color:var(--text-muted);margin-top:5px;">Tüm portföy, son 3 yıl. Puan '+BT_ILERI+' gün sonraki ortalama getiriyle eşleştirildi.</div>';
+            document.getElementById('ayarSemboller').innerHTML=SKOR.varliklar.map(function(v){ return '<span style="display:inline-block;background:var(--input-bg);border-radius:12px;padding:3px 10px;margin:3px 4px 0 0;">'+v.ad+'</span>'; }).join('');
+        }
+        document.getElementById('maasTutar') && document.getElementById('maasTutar').addEventListener('input',function(){ if(SKOR) renderMaas(); });
+        fetch('./skor.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+            SKOR=d; renderPiyasa(); renderAnaliz(); renderMaas(); renderHaber(); renderAyar();
+        }).catch(function(){ document.getElementById('azSira').innerHTML='<span style="color:var(--text-muted)">Puan verisi henüz yok. Her hafta içi otomatik güncellenir.</span>'; });
     })();
     </script>
 </body>
