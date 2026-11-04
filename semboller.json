@@ -1,15 +1,15 @@
 {
-  "aciklama": "Analiz edilecek varlıklar. ad = ekranda görünen, yahoo = veri sembolü, tip = BIST/ABD/kripto, para = TL/USD",
+  "aciklama": "Takip edilen varlıklar. ad=ekranda, yahoo=veri sembolü, tip, para, maliyet=ortalama maliyet (başlangıç; uygulamadan düzenlenebilir), haber=Türkçe haber araması",
   "liste": [
-    {"ad":"THYAO","yahoo":"THYAO.IS","tip":"BIST","para":"TL"},
-    {"ad":"TUPRS","yahoo":"TUPRS.IS","tip":"BIST","para":"TL"},
-    {"ad":"FROTO","yahoo":"FROTO.IS","tip":"BIST","para":"TL"},
-    {"ad":"BIMAS","yahoo":"BIMAS.IS","tip":"BIST","para":"TL"},
-    {"ad":"KCHOL","yahoo":"KCHOL.IS","tip":"BIST","para":"TL"},
-    {"ad":"ORZAX","yahoo":"ORZAX.IS","tip":"BIST","para":"TL"},
-    {"ad":"PAXG (altın)","yahoo":"PAXG-USD","tip":"kripto","para":"USD"},
-    {"ad":"UUUU","yahoo":"UUUU","tip":"ABD","para":"USD"},
-    {"ad":"GOOGLB (Alphabet)","yahoo":"GOOGL","tip":"ABD","para":"USD"},
-    {"ad":"NVDAB (Nvidia)","yahoo":"NVDA","tip":"ABD","para":"USD"}
+    {"ad":"THYAO","yahoo":"THYAO.IS","tip":"BIST","para":"TL","maliyet":327.26,"haber":"THYAO Türk Hava Yolları hisse"},
+    {"ad":"TUPRS","yahoo":"TUPRS.IS","tip":"BIST","para":"TL","maliyet":231.56,"haber":"TUPRS Tüpraş hisse"},
+    {"ad":"FROTO","yahoo":"FROTO.IS","tip":"BIST","para":"TL","maliyet":88.52,"haber":"FROTO Ford Otosan hisse"},
+    {"ad":"BIMAS","yahoo":"BIMAS.IS","tip":"BIST","para":"TL","maliyet":381.33,"haber":"BIMAS BİM hisse"},
+    {"ad":"KCHOL","yahoo":"KCHOL.IS","tip":"BIST","para":"TL","maliyet":196.48,"haber":"KCHOL Koç Holding hisse"},
+    {"ad":"ORZAX","yahoo":"ORZAX.IS","tip":"BIST","para":"TL","maliyet":69.00,"haber":"ORZAX Orzax hisse"},
+    {"ad":"PAXG (altın)","yahoo":"PAXG-USD","tip":"kripto","para":"USD","maliyet":4290.82,"haber":"altın ons fiyat"},
+    {"ad":"UUUU","yahoo":"UUUU","tip":"ABD","para":"USD","maliyet":10.87,"haber":"Energy Fuels uranyum hisse"},
+    {"ad":"GOOGLB (Alphabet)","yahoo":"GOOGL","tip":"ABD","para":"USD","maliyet":342.75,"haber":"Alphabet Google hisse"},
+    {"ad":"NVDAB (Nvidia)","yahoo":"NVDA","tip":"ABD","para":"USD","maliyet":209.10,"haber":"Nvidia hisse"}
   ]
 }

@@ -82,29 +82,29 @@ def backtest(H,L,C, ileriler=(10,20,60)):
         cikti[str(ileri)]=oz
     return cikti, cache
 
-def haberler(sym):
+import urllib.parse, xml.etree.ElementTree as ET
+def haberler(sorgu):
     try:
-        d=ff(f"https://query1.finance.yahoo.com/v1/finance/search?q={sym}&newsCount=4&quotesCount=0")
-        out=[]
-        for h in d.get("news",[])[:4]:
-            out.append({"baslik":h.get("title"),"link":h.get("link"),
-                        "kaynak":h.get("publisher"),"zaman":h.get("providerPublishTime")})
+        q=urllib.parse.quote(sorgu)
+        url=f"https://news.google.com/rss/search?q={q}&hl=tr&gl=TR&ceid=TR:tr"
+        xml=urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"}), timeout=30).read()
+        root=ET.fromstring(xml); out=[]
+        for it in root.iter("item"):
+            baslik=(it.findtext("title") or "").strip()
+            src=it.find("{*}source")
+            kaynak=src.text if src is not None else ""
+            if kaynak and baslik.endswith(" - "+kaynak): baslik=baslik[:-(len(kaynak)+3)]
+            pub=it.findtext("pubDate") or ""
+            out.append({"baslik":baslik,"link":it.findtext("link"),"kaynak":kaynak,"zaman":pub})
+            if len(out)>=3: break
         return out
-    except Exception: return []
+    except Exception as e:
+        return []
 
-def piyasa():
-    m={}
-    for ad,sym in [("BIST100","XU100.IS"),("Dolar/TL","USDTRY=X"),("Bitcoin","BTC-USD"),("Ons Altın","GC=F")]:
-        try:
-            r=ohlc(sym,"5d","1d")
-            son=r[-1][2]; onc=r[-2][2]
-            m[ad]={"deger":round(son,2),"degisim":round(100*(son-onc)/onc,2)}
-        except Exception: m[ad]={}
-    return m
 
 liste=json.load(open("semboller.json"))["liste"]
 res={"guncelleme":datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M")+" UTC",
-     "ileriler":[10,20,60],"piyasa":piyasa(),"varliklar":[]}
+     "ileriler":[10,20,60],"varliklar":[]}
 toplu={"10":{},"20":{},"60":{}}
 for ileri in toplu: toplu[ileri]={"yuksek":[],"orta":[],"dusuk":[]}
 
@@ -116,6 +116,9 @@ for v in liste:
         if puan is None:
             res["varliklar"].append({"ad":v["ad"],"tip":v["tip"],"para":v["para"],"fiyat":round(C[-1],2),"yetersiz":True}); continue
         gun_deg=round(100*(C[-1]-C[-2])/C[-2],2) if len(C)>1 else 0
+        son252=C[-252:] if len(C)>=252 else C
+        ymin=min(son252); ymax=max(son252)
+        konum=round(100*(C[-1]-ymin)/(ymax-ymin)) if ymax>ymin else 50
         bt,cache=backtest(H,L,C)
         for ileri in toplu:
             il=int(ileri)
@@ -127,9 +130,9 @@ for v in liste:
             p4,g4=skor_series([x[0] for x in d4],[x[1] for x in d4],[x[2] for x in d4])
         except Exception: p4,g4=None,None
         res["varliklar"].append({"ad":v["ad"],"tip":v["tip"],"para":v["para"],
-            "fiyat":round(C[-1],2),"gun_degisim":gun_deg,"puan":puan,"gostergeler":g,
+            "fiyat":round(C[-1],2),"gun_degisim":gun_deg,"yil_dusuk":round(ymin,2),"yil_yuksek":round(ymax,2),"yil_konum":konum,"puan":puan,"gostergeler":g,
             "al":sum(1 for x in g if x[2]=="AL"),"sat":sum(1 for x in g if x[2]=="SAT"),
-            "puan4s":p4,"gostergeler4s":g4,"backtest":bt,"haberler":haberler(v["yahoo"])})
+            "puan4s":p4,"gostergeler4s":g4,"backtest":bt,"haberler":haberler(v.get("haber") or v["ad"])})
     except Exception as e:
         res["varliklar"].append({"ad":v["ad"],"hata":str(e)[:120]})
 
