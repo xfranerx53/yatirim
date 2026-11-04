@@ -52,6 +52,13 @@ Son güncelleme: 2026-10-26 · Uygulama sürümü: sw cache `portfoy-v8`
 
 - 2026-10-26: Üç özellik: (1) **⚡ Hızlı Güncelleme** kartı: tüm sepetlerin güncel değeri tek yerden girilir (`hizliCiz`/`hizliGuncelle`, ana kutuyla senkron). (2) **Sepet sekmelerinde durum noktası**: 🟢 güncel ≥ hedef satış, 🟡 ≥ başabaş, 🔴 başabaşın altı; oturumda bir kez "🎯 Hedefe ulaşan" bildirimi. (3) 📌 Referans özelliği denendi ama kullanıcı istemedi, **kaldırıldı** (kodda yok; tekrar istenmedikçe eklenmez).
 
+## Yeni mimari (v10)
+
+- 2026-11-04: **Sekmeli yapıya geçildi (v10)** ve analiz katmanı eklendi. Üst sekmeler: Özet, Sepetler (eski tüm portföy mantığı burada), Analiz, Maaş Günü, Haberler, Ayarlar. Sayfa geçişi `sayfaGec()` ile `.sayfa` div'lerini gösterip gizler.
+- 2026-11-04: **Skor motoru** (public repo, ücretsiz GitHub Actions). `semboller.json` = takip edilen varlıklar (ad/yahoo/tip/para). `araclar/skor.py` her hafta içi 18:40'ta çalışır, `skor.json` üretir: her varlık için 10 göstergeli günlük puan + 4 saatlik puan, 10/20/60 günlük geçmiş testi (backtest), son haberler; ayrıca piyasa yönü (BIST100, Dolar, BTC, Ons Altın) ve tüm portföy toplu backtest. Uygulama `skor.json`'u okuyup sayfaları doldurur.
+- 2026-11-04: Yeni varlık eklemek = `semboller.json`'a satır ekleyip push; motor otomatik hesaplar.
+- Açık iş: Midas/Binance alımlarının Gmail'den otomatik kaydı (işlem e-postası örneği bekleniyor); puan eşiği aşılınca Cloudflare bildirimi (Ayarlar'da duruyor, kurulmadı).
+
 ## Entegrasyon kararı (Binance / QNB / Midas)
 - Midas ve QNB Yatırım'ın bireysel kullanıcıya açık API'si yok → otomatik bağlanamaz; değer elle girilir (veya ileride ekran görüntüsü/CSV ile).
 - Binance'in salt-okunur API'si var ama API anahtarını herkese açık repodaki istemci koduna koymak güvensiz; yapılacaksa ayrı bir sunucu/fonksiyon gerekir. Güvenli ve anahtarsız seçenek: Binance **herkese açık fiyat** uç noktasından (PAXG, BTC vb.) canlı fiyat çekip adet × fiyat ile güncel değeri otomatik yazmak (açık iş 3 + 5).
