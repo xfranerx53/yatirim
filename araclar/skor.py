@@ -148,7 +148,6 @@ for ileri,kov in toplu.items():
 res["toplu_backtest"]=tb
 res["varliklar"].sort(key=lambda x:x.get("puan",-1), reverse=True)
 json.dump(res, open("skor.json","w"), ensure_ascii=False, separators=(",",":"))
-print("Piyasa:", res["piyasa"])
 for v in res["varliklar"]:
     if "puan" in v: print(f'  {v["ad"]:>18} g{v["puan"]:>3} 4s={v.get("puan4s")} haber={len(v.get("haberler",[]))}')
     else: print(f'  {v["ad"]:>18} {v.get("hata",v.get("yetersiz"))}')
