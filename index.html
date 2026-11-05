@@ -822,8 +822,9 @@
                 const h = sepetHesap(s, bugun), g = sayi(s.guncelDeger);
                 if (!(g > 0) || !(h.kalanAnapara > 0)) return null;
                 const enf = h.kalanReel > 0 ? (g / h.kalanReel - 1) * 100 : 0;
+                const hedef = h.kalanHedef > 0 ? (g / h.kalanHedef - 1) * 100 : 0;
                 const sonAlim = (s.dates || []).filter((d, i) => d && sayi((s.amts || [])[i]) > 0).sort().pop();
-                return { s, mal: (g / h.kalanAnapara - 1) * 100, alt: 'maliyete göre · başabaşa göre ' + pc(enf) + (sonAlim ? ' · son alım ' + Math.round((bugun - tarihParse(sonAlim)) / 86400000) + ' gün önce' : '') };
+                return { s, mal: (g / h.kalanAnapara - 1) * 100, alt: 'maliyete göre · başabaşa göre ' + pc(enf) + ' · hedefe göre ' + pc(hedef) + (sonAlim ? ' · son alım ' + Math.round((bugun - tarihParse(sonAlim)) / 86400000) + ' gün önce' : '') };
             }).filter(Boolean).sort((a, b) => a.mal - b.mal);
             if (!L.length) { el.innerHTML = '<span style="color:var(--text-muted)">Sepetlerin "güncel değer" alanını doldur.</span>'; return; }
             el.innerHTML = L.map((x, i) => `<div class="summary-item" style="${i === 0 ? 'font-weight:bold;' : ''}"><span>${i === 0 ? '🔻 ' : ''}${x.s.platform ? x.s.platform + ' · ' : ''}${x.s.name}</span><span style="color:${x.mal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${pc(x.mal)}</span></div>` +
