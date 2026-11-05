@@ -157,7 +157,7 @@
     <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
         <div class="card-title" style="color: var(--accent-red);"><span>📉 EN ÇOK DÜŞEN SEPET</span></div>
         <div id="dususListe" style="font-size:12px;"></div>
-        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Güncel değer ÷ kalan maliyet. En düşük en üstte. Yatırım tavsiyesi değildir.</div>
+        <div style="margin-top:6px;font-size:10px;color:var(--text-muted);">Sağdaki yüzde: güncel değerin hedef satışa uzaklığı. Hedefe en uzak en üstte. Yatırım tavsiyesi değildir.</div>
     </div>
 
     </div><!-- /sp-ozet -->
@@ -822,12 +822,13 @@
                 const h = sepetHesap(s, bugun), g = sayi(s.guncelDeger);
                 if (!(g > 0) || !(h.kalanAnapara > 0)) return null;
                 const enf = h.kalanReel > 0 ? (g / h.kalanReel - 1) * 100 : 0;
+                const mal = (g / h.kalanAnapara - 1) * 100;
                 const hedef = h.kalanHedef > 0 ? (g / h.kalanHedef - 1) * 100 : 0;
                 const sonAlim = (s.dates || []).filter((d, i) => d && sayi((s.amts || [])[i]) > 0).sort().pop();
-                return { s, mal: (g / h.kalanAnapara - 1) * 100, alt: 'maliyete göre · başabaşa göre ' + pc(enf) + ' · hedefe göre ' + pc(hedef) + (sonAlim ? ' · son alım ' + Math.round((bugun - tarihParse(sonAlim)) / 86400000) + ' gün önce' : '') };
-            }).filter(Boolean).sort((a, b) => a.mal - b.mal);
+                return { s, hedef, alt: 'hedefe göre · maliyete göre ' + pc(mal) + ' · başabaşa göre ' + pc(enf) + (sonAlim ? ' · son alım ' + Math.round((bugun - tarihParse(sonAlim)) / 86400000) + ' gün önce' : '') };
+            }).filter(Boolean).sort((a, b) => a.hedef - b.hedef);
             if (!L.length) { el.innerHTML = '<span style="color:var(--text-muted)">Sepetlerin "güncel değer" alanını doldur.</span>'; return; }
-            el.innerHTML = L.map((x, i) => `<div class="summary-item" style="${i === 0 ? 'font-weight:bold;' : ''}"><span>${i === 0 ? '🔻 ' : ''}${x.s.platform ? x.s.platform + ' · ' : ''}${x.s.name}</span><span style="color:${x.mal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${pc(x.mal)}</span></div>` +
+            el.innerHTML = L.map((x, i) => `<div class="summary-item" style="${i === 0 ? 'font-weight:bold;' : ''}"><span>${i === 0 ? '🔻 ' : ''}${x.s.platform ? x.s.platform + ' · ' : ''}${x.s.name}</span><span style="color:${x.hedef >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">${pc(x.hedef)}</span></div>` +
                 `<div style="font-size:10px;color:var(--text-muted);margin:-2px 0 6px;">${x.alt}</div>`).join('');
         }
 
