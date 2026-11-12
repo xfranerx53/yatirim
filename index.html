@@ -1013,12 +1013,12 @@
             if (guncel > 0) {
                 if (h.kalanReel > 0) {
                     const f = ((guncel - h.kalanReel) / h.kalanReel) * 100;
-                    badgeEnf.innerHTML = f >= 0 ? `<span class="status-badge badge-above">+%${f.toFixed(1)} Üstünde</span>` : `<span class="status-badge badge-below">%${f.toFixed(1)} Altında</span>`;
+                    badgeEnf.innerHTML = f >= 0 ? `<span class="status-badge badge-above">+%${f.toFixed(1)} Üstünde</span>` : `<span class="status-badge badge-below">%${Math.abs(f).toFixed(1)} Altında · +%${((h.kalanReel / guncel - 1) * 100).toFixed(1)} gerekli</span>`;
                 }
                 if (hedefSatis > 0) {
                     const f = ((guncel - hedefSatis) / hedefSatis) * 100;
-                    badgeHedef.innerHTML = f >= 0 ? `<span class="status-badge badge-above">Hedef Aşıldı (+%${f.toFixed(1)})</span>` : `<span class="status-badge badge-below">Hedefe %${Math.abs(f).toFixed(1)} Kaldı</span>`;
-                    badge.innerHTML = f >= 0 ? `<span class="status-badge badge-above">HEDEFE ULAŞILDI (+%${f.toFixed(1)})</span>` : `<span class="status-badge badge-below">HEDEFİN ALTINDA (%${f.toFixed(1)})</span>`;
+                    badgeHedef.innerHTML = f >= 0 ? `<span class="status-badge badge-above">Hedef Aşıldı (+%${f.toFixed(1)})</span>` : `<span class="status-badge badge-below">Hedefe +%${((hedefSatis / guncel - 1) * 100).toFixed(1)} gerekli</span>`;
+                    badge.innerHTML = f >= 0 ? `<span class="status-badge badge-above">HEDEFE ULAŞILDI (+%${f.toFixed(1)})</span>` : `<span class="status-badge badge-below">HEDEFİN %${Math.abs(f).toFixed(1)} ALTINDA</span>`;
                 }
             }
 
