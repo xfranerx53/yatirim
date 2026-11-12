@@ -7,7 +7,7 @@ def ff(url):
 def ohlc(sym, rng, iv):
     d=ff(f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range={rng}&interval={iv}")["chart"]["result"][0]
     q=d["indicators"]["quote"][0]
-    return [(h,l,c) for h,l,c in zip(q["high"],q["low"],q["close"]) if None not in (h,l,c)]
+    return [(h,l,c,t) for h,l,c,t in zip(q["high"],q["low"],q["close"],d.get("timestamp",[])) if None not in (h,l,c)]
 
 def dort_saat(rows):
     out=[]
@@ -108,9 +108,11 @@ res={"guncelleme":datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M")+" UTC",
 toplu={"10":{},"20":{},"60":{}}
 for ileri in toplu: toplu[ileri]={"yuksek":[],"orta":[],"dusuk":[]}
 
+gecmis={}
 for v in liste:
     try:
         rows=ohlc(v["yahoo"],"3y","1d")
+        gecmis[v["ad"]]={datetime.datetime.fromtimestamp(r[3],datetime.timezone.utc).strftime("%Y-%m-%d"):round(r[2],4) for r in rows[-800:]}
         H=[r[0] for r in rows]; L=[r[1] for r in rows]; C=[r[2] for r in rows]
         puan,g=skor_series(H,L,C)
         if puan is None:
@@ -152,3 +154,5 @@ for v in res["varliklar"]:
     if "puan" in v: print(f'  {v["ad"]:>18} g{v["puan"]:>3} 4s={v.get("puan4s")} haber={len(v.get("haberler",[]))}')
     else: print(f'  {v["ad"]:>18} {v.get("hata",v.get("yetersiz"))}')
 print("TOPLU 20g:", tb["20"])
+
+json.dump(gecmis, open("gecmis.json","w"), separators=(",",":"))

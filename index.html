@@ -118,6 +118,7 @@
         <div class="sepet-tab active" data-sayfa="ozet" onclick="sayfaGec('ozet')">📊 Özet</div>
         <div class="sepet-tab" data-sayfa="sepet" onclick="sayfaGec('sepet')">💼 Sepetler</div>
         <div class="sepet-tab" data-sayfa="analiz" onclick="sayfaGec('analiz')">🎯 Analiz</div>
+        <div class="sepet-tab" data-sayfa="defter" onclick="sayfaGec('defter')">📒 Defter</div>
         <div class="sepet-tab" data-sayfa="maas" onclick="sayfaGec('maas')">💰 Maaş Günü</div>
         <div class="sepet-tab" data-sayfa="haber" onclick="sayfaGec('haber')">📰 Haberler</div>
         <div class="sepet-tab" data-sayfa="ayar" onclick="sayfaGec('ayar')">⚙️ Ayarlar</div>
@@ -369,6 +370,7 @@
     </div>
     </div><!-- /sp-haber -->
 
+    <div class="sayfa" id="sp-defter" style="display:none"><div id="dfRoot"></div></div>
     <div class="sayfa" id="sp-ayar" style="display:none">
     <div class="card" style="border-color: rgba(245, 158, 11, 0.3);">
         <div class="card-title" style="color: var(--accent-orange);"><span>⚙️ GEÇMİŞ TESTİ AYARI</span></div>
@@ -864,7 +866,7 @@
             };
             var M = window.MALIYET || {};
             var rows = S.varliklar.filter(function(v){ return v.fiyat!=null && !v.yetersiz; }).map(function(v){
-                var mal = (M[v.ad]!=null && M[v.ad]!=='') ? Number(M[v.ad]) : (VARSAYILAN_MALIYET[v.ad]||0);
+                var mal = (window.DEFTER_MAL && window.DEFTER_MAL[v.ad]>0) ? window.DEFTER_MAL[v.ad] : ((M[v.ad]!=null && M[v.ad]!=='') ? Number(M[v.ad]) : (VARSAYILAN_MALIYET[v.ad]||0));
                 var dy = mal>0 ? (1 - v.fiyat/mal)*100 : -999;
                 return { ad:v.ad, fiyat:v.fiyat, cur:(v.para==='USD'?'USD':'TL'), mal:mal, dy:dy };
             });
@@ -1172,6 +1174,7 @@
         }
     </script>
 
+    <script src="defter.js"></script>
     <script>
     var SKOR=null, AZ_VADE='gun', BT_ILERI='20';
     function sayfaGec(s){
@@ -1181,6 +1184,7 @@
         window.scrollTo(0,0);
         setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 30);
         if(s==='maas' && window.bolustur) window.bolustur();
+        if(s==='defter' && window.dfCiz) window.dfCiz();
     }
     (function(){
         var RENK={AL:['rgba(16,185,129,.15)','#10b981'], SAT:['rgba(239,68,68,.15)','#ef4444'], 'NÖTR':['rgba(245,158,11,.15)','#f59e0b']};

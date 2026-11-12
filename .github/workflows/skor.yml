@@ -15,7 +15,7 @@ jobs:
       - run: python araclar/skor.py
       - run: |
           git config user.name "skor-bot"; git config user.email "bot@users.noreply.github.com"
-          git add skor.json
+          git add skor.json gecmis.json
           git commit -m "Skor güncellendi [skip ci]" || exit 0
           for i in 1 2 3 4 5; do
             git pull --rebase && git push && echo "push OK" && exit 0

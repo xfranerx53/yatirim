@@ -1,5 +1,5 @@
-const VERSION = 'portfoy-v16';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const VERSION = 'portfoy-v17';
+const SHELL = ['./', './index.html', './defter.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const CDN = ['cdn.jsdelivr.net', 'www.gstatic.com'];
 const NEVER = ['firebaseio.com', 'googleapis.com', 'frankfurter.app', 'frankfurter.dev', 'exchangerate-api.com']; // canlı veri: asla önbellekleme
 
