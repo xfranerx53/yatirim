@@ -7,9 +7,9 @@
     {"ad":"BIMAS","yahoo":"BIMAS.IS","tip":"BIST","para":"TL","maliyet":381.33,"haber":"BIMAS BİM hisse"},
     {"ad":"KCHOL","yahoo":"KCHOL.IS","tip":"BIST","para":"TL","maliyet":196.48,"haber":"KCHOL Koç Holding hisse"},
     {"ad":"ORZAX","yahoo":"ORZAX.IS","tip":"BIST","para":"TL","maliyet":69.00,"haber":"ORZAX Orzax hisse"},
-    {"ad":"PAXG (altın)","yahoo":"PAXG-USD","tip":"kripto","para":"USD","maliyet":4290.82,"haber":"altın ons fiyat"},
-    {"ad":"UUUU","yahoo":"UUUU","tip":"ABD","para":"USD","maliyet":10.87,"haber":"Energy Fuels uranyum hisse"},
-    {"ad":"GOOGLB (Alphabet)","yahoo":"GOOGL","tip":"ABD","para":"USD","maliyet":342.75,"haber":"Alphabet Google hisse"},
-    {"ad":"NVDAB (Nvidia)","yahoo":"NVDA","tip":"ABD","para":"USD","maliyet":209.10,"haber":"Nvidia hisse"}
+    {"ad":"PAXG (altın)","yahoo":"PAXG-USD","tip":"kripto","para":"USD","maliyet":4001.36,"haber":"altın ons fiyat"},
+    {"ad":"UUUU","yahoo":"UUUU","tip":"ABD","para":"USD","maliyet":10.17,"haber":"Energy Fuels uranyum hisse"},
+    {"ad":"GOOGLB (Alphabet)","yahoo":"GOOGL","tip":"ABD","para":"USD","maliyet":324.21,"haber":"Alphabet Google hisse"},
+    {"ad":"NVDAB (Nvidia)","yahoo":"NVDA","tip":"ABD","para":"USD","maliyet":185.35,"haber":"Nvidia hisse"}
   ]
 }
