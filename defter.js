@@ -4,13 +4,14 @@
   function AU() { try { return auth; } catch (e) { return null; } }
   function SP() { try { return sepetler || []; } catch (e) { return []; } }
   function AKT() { try { return aktifSepetId; } catch (e) { return null; } }
-  var ESLE = [['PAXG', 'PAXG (altın)'], ['NVDAB', 'NVDAB (Nvidia)'], ['GOOGLB', 'GOOGLB (Alphabet)'], ['UUUU', 'UUUU'], ['BIST', ['THYAO', 'TUPRS', 'FROTO', 'BIMAS', 'KCHOL', 'ORZAX']]];
+  var ESLE = [['PAXG', 'PAXG (altın)'], ['NVDAB', 'NVDAB (Nvidia)'], ['GOOGLB', 'GOOGLB (Alphabet)'], ['UUUU', 'UUUU'], ['YAY', 'YAY (fon)'], ['NAK', 'NAKİT USD'], ['BIST', ['THYAO', 'TUPRS', 'FROTO', 'BIMAS', 'KCHOL', 'ORZAX']]];
   var $ = function (i) { return document.getElementById(i); };
   var f2 = function (n, d) { return Number(n).toLocaleString('tr-TR', { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d }); };
   var bugunStr = function () { var t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); };
   var yol = function (k) { return 'users/' + AU().currentUser.uid + '/' + k; };
-  var cur = function (ad) { var v = (window.SKOR && SKOR.varliklar || []).find(function (x) { return x.ad === ad; }); return v && v.para === 'USD' ? '$' : '₺'; };
-  var fiyatSon = function (ad) { var v = (window.SKOR && SKOR.varliklar || []).find(function (x) { return x.ad === ad; }); return v ? v.fiyat : null; };
+  var SABIT = { 'NAKİT USD': 1 };   // fiyatı sabit varlıklar (USDT = 1 $)
+  var cur = function (ad) { if (SABIT[ad]) return '$'; if (/\(fon\)$/.test(ad)) return '₺'; var v = (window.SKOR && SKOR.varliklar || []).find(function (x) { return x.ad === ad; }); return v && v.para === 'USD' ? '$' : '₺'; };
+  var fiyatSon = function (ad) { if (SABIT[ad]) return SABIT[ad]; var v = (window.SKOR && SKOR.varliklar || []).find(function (x) { return x.ad === ad; }); return v ? v.fiyat : null; };
 
   function fiyatBul(ad, tarih) {
     var g = GECMIS[ad];
@@ -72,7 +73,7 @@
   function ciz() {
     var el = $('dfRoot'); if (!el) return;
     var S = window.SKOR; if (!S) { el.innerHTML = '<div class="card"><span style="color:var(--text-muted)">Fiyat verisi yükleniyor…</span></div>'; return; }
-    var H = hesapla(), adlar = S.varliklar.map(function (v) { return v.ad; });
+    var H = hesapla(), adlar = S.varliklar.map(function (v) { return v.ad; }).concat(Object.keys(SABIT));
     var satirlar = Object.keys(H).filter(function (ad) { return H[ad].adet > 0 || Math.abs(H[ad].real) > 0; }).map(function (ad) {
       var r = H[ad], p = fiyatSon(ad), c = cur(ad), ort = r.adet > 0 ? r.mal / r.adet : 0, deger = r.adet * (p || 0);
       var kz = r.adet > 0 && r.mal > 0 ? (deger / r.mal - 1) * 100 : null;
@@ -100,7 +101,7 @@
 
     el.innerHTML =
       '<div class="card" style="border-color:rgba(16,185,129,.3);"><div class="card-title" style="color:var(--accent-green);"><span>📒 POZİSYONLARIM (defterden)</span></div>' + satirlar +
-      '<div style="font-size:9px;color:var(--text-muted);margin-top:6px;">Ortalama maliyet yöntemi. Fiyatlar günlük kapanıştır, hisse/ABD fiyatları gecikmeli olabilir. Yatırım tavsiyesi değildir.</div></div>' +
+      '<div style="font-size:9px;color:var(--text-muted);margin-top:6px;">Ortalama maliyet yöntemi. Fiyatlar canlı çekilir (hisse ~15 dk gecikmeli, YAY günlük TEFAS fiyatı). Yatırım tavsiyesi değildir.</div></div>' +
       '<div class="card" style="border-color:rgba(59,130,246,.3);"><div class="card-title" style="color:var(--accent-blue);"><span>➕ İŞLEM EKLE</span></div>' +
       '<div style="display:flex;gap:6px;margin-bottom:6px;"><select id="dfVarlik">' + adlar.map(function (a) { return '<option>' + a + '</option>'; }).join('') + '</select>' +
       '<select id="dfTur" style="max-width:90px;"><option value="al">Alım</option><option value="sat">Satım</option></select></div>' +
@@ -113,7 +114,7 @@
       '<div class="card" style="border-color:rgba(245,158,11,.3);"><div class="card-title" style="color:var(--accent-orange);"><span>🔧 ARAÇLAR</span></div>' + otoSatir +
       '<button onclick="dfIceAktar()" style="width:100%;padding:9px;margin-top:8px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:8px;color:#fff;">Sepetlerden içe aktar (PAXG, NVDAB, GOOGLB, UUUU)</button>' +
       '<button onclick="dfYedek()" style="width:100%;padding:9px;margin-top:6px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:8px;color:#fff;">Tüm veriyi yedek olarak indir</button>' +
-      '<div style="font-size:9px;color:var(--text-muted);margin-top:6px;">Her gün otomatik yedek de özel depoya alınır (son 30 gün). QNB fonu için fiyat kaynağı yok.</div></div>';
+      '<div style="font-size:9px;color:var(--text-muted);margin-top:6px;">Her gün otomatik yedek de özel depoya alınır (son 30 gün). Fiyatlar canlı çekilir; bakiyeler defterden hesaplanır, elle bakiye yazmana gerek yok.</div></div>';
   }
 
   window.dfKomKaydet = function (v) { KOM = parseFloat(v) || 0; database.ref(yol('defterAyar/kom')).set(KOM); };
@@ -174,5 +175,39 @@
       if (k !== sonAnahtar) { sonAnahtar = k; uygula(); ciz(); }
     }
   }, 800);
+
+  /* ---- Canlı fiyat: Cloudflare Worker (Yahoo + TEFAS) ---- */
+  var WORKER = 'https://fiyat.xfranerxx.workers.dev/';
+  var YSEM = { 'THYAO': 'THYAO.IS', 'TUPRS': 'TUPRS.IS', 'FROTO': 'FROTO.IS', 'BIMAS': 'BIMAS.IS', 'KCHOL': 'KCHOL.IS', 'ORZAX': 'ORZAX.IS', 'PAXG (altın)': 'PAXG-USD', 'UUUU': 'UUUU', 'GOOGLB (Alphabet)': 'GOOGL', 'NVDAB (Nvidia)': 'NVDA' };
+  var FSEM = { 'YAY (fon)': 'YAY' };
+  var canliBusy = false;
+  function canliYenile() {
+    var S = window.SKOR; if (!S || canliBusy) return; canliBusy = true;
+    var url = WORKER + '?v=2&s=' + Object.keys(YSEM).map(function (k) { return YSEM[k]; }).join(',') + '&f=' + Object.keys(FSEM).map(function (k) { return FSEM[k]; }).join(',');
+    fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      var n = 0;
+      function yaz(ad, x, para, tip) {
+        if (!x || !(x.p > 0)) return;
+        var v = S.varliklar.find(function (q) { return q.ad === ad; });
+        if (!v) { v = { ad: ad, tip: tip, para: para, fon: tip === 'fon' }; S.varliklar.push(v); }
+        v.fiyat = Math.round(x.p * 100) / 100;
+        if (x.o > 0) v.gun_degisim = Math.round((x.p / x.o - 1) * 10000) / 100;
+        v.canli = 1; n++;
+      }
+      Object.keys(YSEM).forEach(function (ad) { yaz(ad, d[YSEM[ad]]); });
+      Object.keys(FSEM).forEach(function (ad) { yaz(ad, d[FSEM[ad]], 'TL', 'fon'); });
+      if (!n) return;
+      S.canliZaman = new Date();
+      if (typeof window.renderPiyasa === 'function') window.renderPiyasa();
+      var z = $('canliZaman'), kutu = $('piyasaKutu');
+      if (!z && kutu) { z = document.createElement('div'); z.id = 'canliZaman'; z.style.cssText = 'font-size:9px;color:var(--text-muted);margin-top:6px;'; kutu.parentNode.appendChild(z); }
+      if (z) z.textContent = 'Canlı fiyat · ' + S.canliZaman.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) + ' · hisse ~15 dk gecikmeli, YAY günlük TEFAS fiyatı';
+      if (hazir) { uygula(); ciz(); } else if (window.bolustur) window.bolustur();
+    }).catch(function () {}).then(function () { canliBusy = false; });
+  }
+  window.canliYenile = canliYenile;
+  setInterval(function () { if (!document.hidden) canliYenile(); }, 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) canliYenile(); });
+  var _cy = setInterval(function () { if (window.SKOR) { clearInterval(_cy); canliYenile(); } }, 300);
   window.dfAc = function () { ciz(); };
 })();

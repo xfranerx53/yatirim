@@ -131,12 +131,46 @@ for v in liste:
             s=ohlc(v["yahoo"],"60d","60m"); d4=dort_saat(s)
             p4,g4=skor_series([x[0] for x in d4],[x[1] for x in d4],[x[2] for x in d4])
         except Exception: p4,g4=None,None
-        res["varliklar"].append({"ad":v["ad"],"tip":v["tip"],"para":v["para"],
+        res["varliklar"].append({"ad":v["ad"],"yahoo":v["yahoo"],"tip":v["tip"],"para":v["para"],
             "fiyat":round(C[-1],2),"gun_degisim":gun_deg,"yil_dusuk":round(ymin,2),"yil_yuksek":round(ymax,2),"yil_konum":konum,"puan":puan,"gostergeler":g,
             "al":sum(1 for x in g if x[2]=="AL"),"sat":sum(1 for x in g if x[2]=="SAT"),
             "puan4s":p4,"gostergeler4s":g4,"backtest":bt,"haberler":haberler(v.get("haber") or v["ad"])})
     except Exception as e:
         res["varliklar"].append({"ad":v["ad"],"hata":str(e)[:120]})
+
+def fon_fiyat(kod):
+    """TEFAS fon fiyat geçmişi: [(tarih, fiyat)] yeniden eskiye. Önce fvt.com.tr, olmazsa ekofin.net."""
+    import re
+    try:
+        r=urllib.request.urlopen(urllib.request.Request(f"https://fvt.com.tr/fonlar/yatirim-fonlari/{kod}",headers={"User-Agent":"Mozilla/5.0"}),timeout=40).read().decode("utf-8","replace").replace('\\"','"')
+        a=re.findall(r'"kod":"'+kod+r'","fiyat":"([\d.]+)","tarih":"(\d{4}-\d\d-\d\d)"',r)
+        seen={}
+        for f,t in a: seen.setdefault(t,float(f))
+        if seen: return sorted(seen.items(),reverse=True)
+    except Exception as e: print("fvt hata",e)
+    try:
+        r=urllib.request.urlopen(urllib.request.Request(f"https://ekofin.net/fonlar/detay/{kod}",headers={"User-Agent":"Mozilla/5.0"}),timeout=40).read().decode("utf-8","replace").replace('\\"','"')
+        m=re.search(r'"son_Fiyat":([\d.]+),"gunluk_Getiri":(-?[\d.]+),"fon_Kodu":"[A-Z0-9]+","İslem_Tarihi":"(\d{4}-\d\d-\d\d)',r)
+        if m:
+            p=float(m.group(1)); g=float(m.group(2))
+            return [(m.group(3),p),("onceki",p/(1+g/100))]
+    except Exception as e: print("ekofin hata",e)
+    return []
+
+try: eski_gecmis=json.load(open("gecmis.json"))
+except Exception: eski_gecmis={}
+for fv in json.load(open("semboller.json")).get("fonlar",[]):
+    sr=fon_fiyat(fv["kod"])
+    if len(sr)>=2:
+        g=eski_gecmis.get(fv["ad"],{})
+        for t,f in sr:
+            if t!="onceki": g[t]=round(f,4)
+        gecmis[fv["ad"]]=dict(sorted(g.items())[-800:])
+        res["varliklar"].append({"ad":fv["ad"],"tip":"fon","para":fv["para"],"fon":True,"yahoo":None,"fiyat":round(sr[0][1],2),
+            "gun_degisim":round(100*(sr[0][1]-sr[1][1])/sr[1][1],2),"fiyat_tarih":sr[0][0]})
+    else:
+        res["varliklar"].append({"ad":fv["ad"],"hata":"fon fiyatı alınamadı"})
+    print("FON",fv["ad"],sr[:2])
 
 tb={}
 for ileri,kov in toplu.items():

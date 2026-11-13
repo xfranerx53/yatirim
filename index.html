@@ -1263,7 +1263,7 @@
         }
         ['maasTutarTL','maasTutarUSD'].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener('input',function(){ if(SKOR) renderMaas(); if(window.bolustur) window.bolustur(); }); });
         fetch('./skor.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
-            SKOR=d; window.SKOR=d; renderPiyasa(); renderAnaliz(); renderMaas(); renderHaber(); renderAyar();
+            SKOR=d; window.SKOR=d; window.renderPiyasa=renderPiyasa; renderPiyasa(); renderAnaliz(); renderMaas(); renderHaber(); renderAyar();
             if(window.bolustur) window.bolustur();
         }).catch(function(){ document.getElementById('azSira').innerHTML='<span style="color:var(--text-muted)">Puan verisi henüz yok. Her hafta içi otomatik güncellenir.</span>'; });
     })();
