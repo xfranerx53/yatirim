@@ -4,7 +4,7 @@
   function AU() { try { return auth; } catch (e) { return null; } }
   function SP() { try { return sepetler || []; } catch (e) { return []; } }
   function AKT() { try { return aktifSepetId; } catch (e) { return null; } }
-  var ESLE = [['PAXG', 'PAXG (altın)'], ['NVDAB', 'NVDAB (Nvidia)'], ['GOOGLB', 'GOOGLB (Alphabet)'], ['UUUU', 'UUUU']];
+  var ESLE = [['PAXG', 'PAXG (altın)'], ['NVDAB', 'NVDAB (Nvidia)'], ['GOOGLB', 'GOOGLB (Alphabet)'], ['UUUU', 'UUUU'], ['BIST', ['THYAO', 'TUPRS', 'FROTO', 'BIMAS', 'KCHOL', 'ORZAX']]];
   var $ = function (i) { return document.getElementById(i); };
   var f2 = function (n, d) { return Number(n).toLocaleString('tr-TR', { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d }); };
   var bugunStr = function () { var t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); };
@@ -45,9 +45,15 @@
     // sepet değerini otomatik güncelle
     var degisti = false;
     SP().forEach(function (s) {
-      if (!s.oto || !H[s.oto] || !(H[s.oto].adet > 0)) return;
-      var p = fiyatSon(s.oto); if (!p) return;
-      var d = Math.round(H[s.oto].adet * p * 100) / 100;
+      if (!s.oto) return;
+      var L = Array.isArray(s.oto) ? s.oto : [s.oto], d = 0, var_ = false, eksik = false;
+      L.forEach(function (a) {
+        if (!H[a] || !(H[a].adet > 0)) return;
+        var p = fiyatSon(a); if (!p) { eksik = true; return; }
+        d += H[a].adet * p; var_ = true;
+      });
+      if (!var_ || eksik) return;
+      d = Math.round(d * 100) / 100;
       if (Math.abs((Number(s.guncelDeger) || 0) - d) > 0.005) { s.guncelDeger = d; degisti = true; }
     });
     if (degisti) {
@@ -86,9 +92,10 @@
         '<input type="number" step="any" inputmode="decimal" value="' + e.fiyat + '" onchange="dfFiyat(\'' + e.id + '\',this.value)" style="width:78px;padding:3px;font-size:11px;' + (e.tah ? 'border-color:var(--accent-orange);' : '') + '">' + (e.tah ? '<span style="color:var(--accent-orange);">tahmini</span>' : '') + '</div></div>';
     }).join('');
 
-    var otoSatir = SP().filter(function (s) { return ESLE.some(function (m) { return (s.name || '').toUpperCase().indexOf(m[0]) >= 0; }); }).map(function (s) {
-      var m = ESLE.find(function (m) { return (s.name || '').toUpperCase().indexOf(m[0]) >= 0; });
-      return '<label style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;"><span>' + s.name + ' sepeti değeri defterden hesaplansın</span><input type="checkbox" ' + (s.oto ? 'checked' : '') + ' onchange="dfOto(\'' + s.id + '\',\'' + m[1] + '\',this.checked)" style="width:auto;"></label>';
+    var otoSatir = SP().map(function (s) {
+      var i = ESLE.findIndex(function (m) { return (s.name || '').toUpperCase().indexOf(m[0]) >= 0; });
+      if (i < 0) return '';
+      return '<label style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;"><span>' + s.name + ' sepeti değeri defterden hesaplansın</span><input type="checkbox" ' + (s.oto ? 'checked' : '') + ' onchange="dfOto(\'' + s.id + '\',' + i + ',this.checked)" style="width:auto;"></label>';
     }).join('');
 
     el.innerHTML =
@@ -106,7 +113,7 @@
       '<div class="card" style="border-color:rgba(245,158,11,.3);"><div class="card-title" style="color:var(--accent-orange);"><span>🔧 ARAÇLAR</span></div>' + otoSatir +
       '<button onclick="dfIceAktar()" style="width:100%;padding:9px;margin-top:8px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:8px;color:#fff;">Sepetlerden içe aktar (PAXG, NVDAB, GOOGLB, UUUU)</button>' +
       '<button onclick="dfYedek()" style="width:100%;padding:9px;margin-top:6px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:8px;color:#fff;">Tüm veriyi yedek olarak indir</button>' +
-      '<div style="font-size:9px;color:var(--text-muted);margin-top:6px;">Her gün otomatik yedek de özel depoya alınır (son 30 gün). Midas BIST sepeti tek tutar olarak girildiği için içe aktarılamaz; hisseleri buradan hisse bazında ekle. QNB fonu için fiyat kaynağı yok.</div></div>';
+      '<div style="font-size:9px;color:var(--text-muted);margin-top:6px;">Her gün otomatik yedek de özel depoya alınır (son 30 gün). QNB fonu için fiyat kaynağı yok.</div></div>';
   }
 
   window.dfKomKaydet = function (v) { KOM = parseFloat(v) || 0; database.ref(yol('defterAyar/kom')).set(KOM); };
@@ -126,7 +133,8 @@
     DEFTER.forEach(function (e) { if (e.id === id) { e.fiyat = v; e.adet = Math.round(e.tutar / v * 1e6) / 1e6; e.tah = 0; } });
     kaydet(); uygula(); ciz();
   };
-  window.dfOto = function (sid, ad, on) {
+  window.dfOto = function (sid, i, on) {
+    var ad = ESLE[i][1];
     var s = SP().find(function (x) { return x.id === sid; }); if (!s) return;
     if (on) s.oto = ad; else delete s.oto;
     sepetleriKaydet(); uygula(); ciz();
@@ -134,7 +142,7 @@
   window.dfIceAktar = function () {
     var H = hesapla(), eklenen = 0, atlanan = [];
     SP().forEach(function (s) {
-      var m = ESLE.find(function (m) { return (s.name || '').toUpperCase().indexOf(m[0]) >= 0; }); if (!m) return;
+      var m = ESLE.find(function (m) { return typeof m[1] === 'string' && (s.name || '').toUpperCase().indexOf(m[0]) >= 0; }); if (!m) return;
       if (H[m[1]] && (H[m[1]].adet > 0 || DEFTER.some(function (e) { return e.a === m[1]; }))) { atlanan.push(m[1]); return; }
       var ekle = function (t, tutar, tur) {
         tutar = parseFloat(tutar) || 0; if (!t || tutar <= 0) return;
